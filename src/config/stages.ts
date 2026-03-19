@@ -24,7 +24,7 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.93,
+    targetAccuracy: 0.9,
     rewardPoints: 100,
     trainingPreset: {
       learningRate: 0.1,
@@ -49,7 +49,7 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.85,
+    targetAccuracy: 0.9,
     rewardPoints: 150,
     trainingPreset: {
       learningRate: 0.05,
@@ -74,7 +74,7 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.88,
+    targetAccuracy: 0.9,
     rewardPoints: 200,
     trainingPreset: {
       learningRate: 0.01,
@@ -150,7 +150,7 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 10,
     outputActivation: "softmax",
     lossFunction: "categoricalCrossentropy",
-    targetAccuracy: 0.93,
+    targetAccuracy: 0.9,
     rewardPoints: 250,
     recommendedLayerTypes: ["conv2d", "flatten"],
     trainingPreset: {
