@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { useGameStore } from "./stores/gameStore";
-import { usePlayStore } from "./stores/playStore";
 import { MenuOverlay } from "./pages/StageSelectPage";
 import { PlayPage } from "./pages/PlayPage";
 import { SkillTreePage } from "./pages/SkillTreePage";
 import { STAGE_DATA } from "./config/stages";
+import { SKILL_DATA } from "./config/skills";
+import { TitleScreen, TutorialScreen } from "./components/GameOverlays";
 import "./App.css";
 
 function App() {
-  const [showTitleScreen, setShowTitleScreen] = useState(true);
-  const [showResetDialog, setShowResetDialog] = useState(false);
   const {
     currentPage,
     setPage,
@@ -18,98 +17,47 @@ function App() {
     setShowMenu,
     currentStageIndex,
     clearedStages,
-    resetProgress,
-    hasSavedProgress,
+    unlockedSkills,
+    hasSeenTutorial,
+    markTutorialSeen,
+    hasHydrated,
   } = useGameStore();
-  const resetPlay = usePlayStore((state) => state.resetPlay);
+  const [showTitleScreen, setShowTitleScreen] = useState(true);
+  const [showTutorialScreen, setShowTutorialScreen] = useState(false);
 
   const stage = STAGE_DATA[currentStageIndex];
-  const progressSummary = `${clearedStages.length} stage${clearedStages.length === 1 ? "" : "s"} cleared`;
-  const showContinue = hasSavedProgress();
+  const initialSkillCount = SKILL_DATA.filter((skill) => skill.cost === 0).length;
+  const hasProgress =
+    points > 0 ||
+    clearedStages.length > 0 ||
+    currentStageIndex > 0 ||
+    unlockedSkills.length > initialSkillCount;
 
-  const handleContinue = () => {
+  const handleEnterGame = () => {
     setShowTitleScreen(false);
+    if (!hasSeenTutorial && !hasProgress) {
+      setShowTutorialScreen(true);
+    }
   };
 
-  const handleStartOver = () => {
-    resetProgress();
-    resetPlay();
-    setShowResetDialog(false);
-    setShowTitleScreen(true);
+  const handleOpenTutorial = () => {
+    setShowTitleScreen(false);
+    setShowMenu(false);
+    setShowTutorialScreen(true);
+  };
+
+  const handleCloseTutorial = () => {
+    markTutorialSeen();
+    setShowTutorialScreen(false);
   };
 
   const handleReturnToTitle = () => {
     setShowMenu(false);
-    setShowResetDialog(false);
     setShowTitleScreen(true);
   };
 
-  if (showTitleScreen) {
-    return (
-      <div className="title-screen">
-        <div className="title-screen__panel">
-          <div className="title-screen__eyebrow">Neural Network Roguelike</div>
-          <h1 className="title-screen__title">NN Roguelike</h1>
-          <p className="title-screen__description">
-            解放したスキルだけでモデルを組み、ステージを突破していく ML パズルゲーム。
-          </p>
-
-          <div className="title-screen__stats">
-            <div className="title-screen__stat">
-              <span className="title-screen__stat-label">Points</span>
-              <strong>{points}</strong>
-            </div>
-            <div className="title-screen__stat">
-              <span className="title-screen__stat-label">Progress</span>
-              <strong>{progressSummary}</strong>
-            </div>
-            <div className="title-screen__stat">
-              <span className="title-screen__stat-label">Stage</span>
-              <strong>{stage?.name ?? "---"}</strong>
-            </div>
-          </div>
-
-          <div className="title-screen__actions">
-            <button className="title-screen__primary-button" onClick={handleContinue}>
-              {showContinue ? "Continue" : "Start"}
-            </button>
-            {showContinue && (
-              <button
-                className="title-screen__secondary-button"
-                onClick={() => setShowResetDialog(true)}
-              >
-                最初から
-              </button>
-            )}
-          </div>
-        </div>
-
-        {showResetDialog && (
-          <div className="title-screen__dialog-backdrop">
-            <div className="title-screen__dialog">
-              <h2>最初からやり直しますか？</h2>
-              <p>
-                保存されているポイント、解放済みスキル、クリア済みステージをすべて削除します。
-              </p>
-              <div className="title-screen__dialog-actions">
-                <button
-                  className="title-screen__dialog-cancel"
-                  onClick={() => setShowResetDialog(false)}
-                >
-                  キャンセル
-                </button>
-                <button
-                  className="title-screen__dialog-confirm"
-                  onClick={handleStartOver}
-                >
-                  最初から始める
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
+  if (!hasHydrated) {
+    return <div className="app" />;
   }
 
   return (
@@ -153,6 +101,25 @@ function App() {
         <MenuOverlay
           onClose={() => setShowMenu(false)}
           onBackToTitle={handleReturnToTitle}
+          onOpenTutorial={handleOpenTutorial}
+        />
+      )}
+
+      {showTitleScreen && (
+        <TitleScreen
+          hasProgress={hasProgress}
+          points={points}
+          clearedCount={clearedStages.length}
+          totalStages={STAGE_DATA.length}
+          onStart={handleEnterGame}
+          onOpenTutorial={handleOpenTutorial}
+        />
+      )}
+
+      {showTutorialScreen && (
+        <TutorialScreen
+          totalStages={STAGE_DATA.length}
+          onClose={handleCloseTutorial}
         />
       )}
     </div>

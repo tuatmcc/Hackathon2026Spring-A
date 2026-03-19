@@ -18,10 +18,13 @@ interface GameStore {
   unlockedSkills: string[];
   clearedStages: string[];
   currentStageIndex: number;
+  hasSeenTutorial: boolean;
+  seenStageIntroIds: string[];
 
   // --- UI ステート (非永続) ---
   currentPage: PageId;
   showMenu: boolean;
+  hasHydrated: boolean;
 
   // --- アクション ---
   unlockSkill: (skillId: string) => void;
@@ -32,6 +35,9 @@ interface GameStore {
   selectStage: (index: number) => void;
   setPage: (page: PageId) => void;
   setShowMenu: (show: boolean) => void;
+  markTutorialSeen: () => void;
+  markStageIntroSeen: (stageId: string) => void;
+  setHasHydrated: (hydrated: boolean) => void;
 }
 
 const initialProgressState = {
@@ -62,11 +68,22 @@ export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       ...initialProgressState,
+      hasSeenTutorial: false,
+      seenStageIntroIds: [],
       currentPage: "play" as PageId,
       showMenu: false,
+      hasHydrated: false,
 
       setPage: (page) => set({ currentPage: page }),
       setShowMenu: (show) => set({ showMenu: show }),
+      setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
+      markTutorialSeen: () => set({ hasSeenTutorial: true }),
+      markStageIntroSeen: (stageId: string) =>
+        set((state) =>
+          state.seenStageIntroIds.includes(stageId)
+            ? state
+            : { seenStageIntroIds: [...state.seenStageIntroIds, stageId] },
+        ),
 
       unlockSkill: (skillId: string) => {
         const skill = SKILL_DATA.find((s) => s.id === skillId);
@@ -124,7 +141,12 @@ export const useGameStore = create<GameStore>()(
         unlockedSkills: state.unlockedSkills,
         clearedStages: state.clearedStages,
         currentStageIndex: state.currentStageIndex,
+        hasSeenTutorial: state.hasSeenTutorial,
+        seenStageIntroIds: state.seenStageIntroIds,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

@@ -28,6 +28,9 @@ export interface StageDef {
   id: string;
   name: string;
   description: string;
+  briefing?: string;
+  hint?: string;
+  clearMessage?: string;
   /** datasets.ts のレジストリキー */
   datasetId: string;
   /** 入力テンソルの形状。[1] = 1D特徴量, [2] = 2D特徴量, [28,28,1] = 画像 */

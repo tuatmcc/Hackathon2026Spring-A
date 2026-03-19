@@ -25,6 +25,7 @@ import { STAGE_DATA } from "../config/stages";
 import { useGameStore } from "./gameStore";
 import { useVisualizerStore } from "./visualizerStore";
 import { buildModel } from "../ml/buildModel";
+import type { TrainResult } from "../ml/trainer";
 import { trainModel } from "../ml/trainer";
 import {
   createVisualizationSnapshot,
@@ -49,6 +50,8 @@ interface PlayStore {
   metrics: TrainingMetrics[];
   activeTrainingRunId: number | null;
   nextTrainingRunId: number;
+  lastTrainingResult: TrainResult | null;
+  pendingStageClearId: string | null;
 
   // --- グラフ操作 ---
   onNodesChange: (changes: NodeChange[]) => void;
@@ -72,6 +75,7 @@ interface PlayStore {
   beginTrainingRun: () => number;
   isTrainingRunCurrent: (runId: number) => boolean;
   startTraining: () => Promise<void>;
+  dismissStageClearPopup: () => void;
 
   // --- リセット ---
   resetPlay: () => void;
@@ -89,6 +93,8 @@ const initialState = {
   metrics: [] as TrainingMetrics[],
   activeTrainingRunId: null as number | null,
   nextTrainingRunId: 0,
+  lastTrainingResult: null as TrainResult | null,
+  pendingStageClearId: null as string | null,
 };
 
 export const usePlayStore = create<PlayStore>()((set, get) => ({
@@ -159,6 +165,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     set({
       trainingStatus: initialState.trainingStatus,
       metrics: initialState.metrics,
+      lastTrainingResult: initialState.lastTrainingResult,
+      pendingStageClearId: initialState.pendingStageClearId,
     }),
   beginTrainingRun: () => {
     const runId = get().nextTrainingRunId + 1;
@@ -170,6 +178,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   },
   isTrainingRunCurrent: (runId: number) =>
     get().activeTrainingRunId === runId,
+  dismissStageClearPopup: () => set({ pendingStageClearId: null }),
   startTraining: async () => {
     const { currentStageIndex, addPoints, clearStage } = useGameStore.getState();
     const stage = STAGE_DATA[currentStageIndex];
@@ -232,18 +241,33 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         createVisualizationSnapshot(activeModel, dataset, stage, { epoch: epochs }),
       );
 
-      const accuracy = result.finalAccuracy ?? 0;
-      if (accuracy >= stage.targetAccuracy) {
+      const cleared =
+        stage.taskType === "regression"
+          ? result.finalLoss <= (stage.targetLoss ?? Number.POSITIVE_INFINITY)
+          : (result.finalAccuracy ?? 0) >= stage.targetAccuracy;
+
+      if (cleared) {
         clearStage(stage.id);
         addPoints(stage.rewardPoints);
-        set({ trainingStatus: "completed" });
+        set({
+          trainingStatus: "completed",
+          lastTrainingResult: result,
+          pendingStageClearId: stage.id,
+        });
       } else {
-        set({ trainingStatus: "failed" });
+        set({
+          trainingStatus: "failed",
+          lastTrainingResult: result,
+          pendingStageClearId: null,
+        });
       }
     } catch (error) {
       console.error("Training failed:", error);
       if (get().isTrainingRunCurrent(runId)) {
-        set({ trainingStatus: "failed" });
+        set({
+          trainingStatus: "failed",
+          pendingStageClearId: null,
+        });
       }
     } finally {
       dataset?.xs.dispose();
