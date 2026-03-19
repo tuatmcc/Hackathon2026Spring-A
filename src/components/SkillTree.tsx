@@ -105,7 +105,7 @@ export function SkillTree({
   };
 
   return (
-    <div ref={containerRef} style={{ minWidth: 180, padding: 8, position: "relative" }}>
+    <div ref={containerRef} style={{ padding: 8, position: "relative" }}>
       <h4 style={{ marginBottom: 8 }}>{title}</h4>
       <svg
         style={{
@@ -145,7 +145,7 @@ export function SkillTree({
       </svg>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "relative", zIndex: 2 }}>
         {levels.map((levelSkills) => (
-          <div key={levelSkills[0]?.id} style={{ display: "flex", gap: 8 }}>
+          <div key={levelSkills[0]?.id} style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             {levelSkills.map((skill) => (
               <div
                 key={skill.id}
@@ -157,6 +157,7 @@ export function SkillTree({
                   padding: 8,
                   opacity: isUnlocked(skill.id) ? 1 : 0.6,
                   background: isUnlocked(skill.id) ? "#e8f5e9" : "transparent",
+                  minWidth: 120,
                 }}
               >
                 <strong style={{ fontSize: 13 }}>{skill.name}</strong>
