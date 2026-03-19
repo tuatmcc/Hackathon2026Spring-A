@@ -32,6 +32,7 @@ interface StageClearPopupProps {
   stage: StageDef;
   hasNextStage: boolean;
   totalStages: number;
+  rewardPoints: number;
   result: TrainResult | null;
   onClose: () => void;
   onOpenSkillTree: () => void;
@@ -255,6 +256,7 @@ export function StageClearPopup({
   stage,
   hasNextStage,
   totalStages,
+  rewardPoints,
   result,
   onClose,
   onOpenSkillTree,
@@ -274,7 +276,9 @@ export function StageClearPopup({
           </div>
           <div style={{ animation: "slide-in-right 0.4s ease 0.3s backwards" }}>
             <span className="stage-popup__label">Reward</span>
-            <strong style={{ animation: "count-up-glow 1s ease 0.5s backwards" }}>+{stage.rewardPoints} pt</strong>
+            <strong style={{ animation: "count-up-glow 1s ease 0.5s backwards" }}>
+              {rewardPoints > 0 ? `+${rewardPoints} pt` : "Already claimed"}
+            </strong>
           </div>
         </div>
 

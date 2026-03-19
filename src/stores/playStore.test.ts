@@ -1,19 +1,82 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { STAGE_DATA } from "../config/stages";
 import { useGameStore } from "./gameStore";
+import { useVisualizerStore } from "./visualizerStore";
 import { usePlayStore } from "./playStore";
+
+const {
+  buildModelMock,
+  trainModelMock,
+  deserializeDatasetMock,
+  createVisualizationSnapshotMock,
+} = vi.hoisted(() => ({
+  buildModelMock: vi.fn(),
+  trainModelMock: vi.fn(),
+  deserializeDatasetMock: vi.fn(),
+  createVisualizationSnapshotMock: vi.fn(),
+}));
+
+vi.mock("../ml/buildModel", () => ({
+  buildModel: buildModelMock,
+}));
+
+vi.mock("../ml/trainer", () => ({
+  trainModel: trainModelMock,
+}));
+
+vi.mock("../ml/visualization", () => ({
+  deserializeDataset: deserializeDatasetMock,
+  createVisualizationSnapshot: createVisualizationSnapshotMock,
+}));
 
 const linearStage = STAGE_DATA.find((stage) => stage.id === "stage_linear")!;
 const circleStage = STAGE_DATA.find((stage) => stage.id === "stage_circle")!;
 
 describe("playStore fixed nodes", () => {
   beforeEach(() => {
+    localStorage.clear();
     usePlayStore.getState().resetPlay();
     useGameStore.setState({
       points: 0,
       unlockedSkills: ["dense", "sigmoid", "sgd"],
       clearedStages: [],
       currentStageIndex: 0,
+    });
+
+    buildModelMock.mockReset();
+    buildModelMock.mockImplementation(() => ({
+      dispose: vi.fn(),
+    }));
+
+    trainModelMock.mockReset();
+    trainModelMock.mockResolvedValue({
+      finalLoss: 0.1,
+      finalAccuracy: linearStage.targetAccuracy,
+    });
+
+    deserializeDatasetMock.mockReset();
+    deserializeDatasetMock.mockImplementation(() => ({
+      xs: { dispose: vi.fn() },
+      ys: { dispose: vi.fn() },
+    }));
+
+    createVisualizationSnapshotMock.mockReset();
+    createVisualizationSnapshotMock.mockReturnValue(null);
+
+    useVisualizerStore.setState({
+      visualizationStageId: null,
+      datasetPreview: null,
+      visualizationSnapshot: null,
+      prepareVisualization: vi.fn(async () => ({
+        sampleCount: 1,
+        inputShape: linearStage.inputShape,
+        outputUnits: linearStage.outputUnits,
+        xs: [],
+        ys: [],
+        labels: [],
+        imageShape: null,
+      })),
+      setVisualizationSnapshot: vi.fn(),
     });
   });
 
@@ -136,5 +199,26 @@ describe("playStore fixed nodes", () => {
     store.updateNodeData("layer-1", { units: 64 });
 
     expect(usePlayStore.getState().nodes[0]?.data.units).toBe(4);
+  });
+
+  it("同じステージを再クリアしてもポイントは初回分しか増えない", async () => {
+    await usePlayStore.getState().startTraining();
+
+    expect(useGameStore.getState().points).toBe(linearStage.rewardPoints);
+    expect(useGameStore.getState().clearedStages).toEqual([linearStage.id]);
+    expect(usePlayStore.getState().pendingStageClearId).toBe(linearStage.id);
+    expect(usePlayStore.getState().pendingStageClearRewardPoints).toBe(
+      linearStage.rewardPoints,
+    );
+
+    usePlayStore.getState().dismissStageClearPopup();
+    useGameStore.getState().selectStage(0);
+
+    await usePlayStore.getState().startTraining();
+
+    expect(useGameStore.getState().points).toBe(linearStage.rewardPoints);
+    expect(useGameStore.getState().clearedStages).toEqual([linearStage.id]);
+    expect(usePlayStore.getState().pendingStageClearId).toBe(linearStage.id);
+    expect(usePlayStore.getState().pendingStageClearRewardPoints).toBe(0);
   });
 });

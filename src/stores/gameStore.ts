@@ -30,7 +30,7 @@ interface GameStore {
   // --- アクション ---
   unlockSkill: (skillId: string) => void;
   addPoints: (amount: number) => void;
-  clearStage: (stageId: string) => void;
+  clearStage: (stageId: string) => boolean;
   hasSavedProgress: () => boolean;
   resetProgress: () => void;
   selectStage: (index: number) => void;
@@ -130,6 +130,7 @@ export const useGameStore = create<GameStore>()(
               ? nextIndex
               : currentStageIndex,
         });
+        return !alreadyCleared;
       },
 
       selectStage: (index: number) => {
