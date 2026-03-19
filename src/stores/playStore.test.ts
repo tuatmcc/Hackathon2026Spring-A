@@ -201,6 +201,34 @@ describe("playStore fixed nodes", () => {
     expect(usePlayStore.getState().nodes[0]?.data.units).toBe(4);
   });
 
+  it("非シーケンシャルなネットワークでは警告メッセージを表示する", async () => {
+    usePlayStore.setState({
+      nodes: [
+        {
+          id: "layer-1",
+          type: "layerNode",
+          position: { x: 120, y: 120 },
+          data: {
+            layerType: "dense",
+            units: 2,
+            activation: "relu",
+            regularization: null,
+            regularizationRate: 0,
+          },
+        },
+      ],
+      edges: [{ id: "e1", source: "__input__", target: "layer-1" }],
+    });
+
+    await usePlayStore.getState().startTraining();
+
+    expect(usePlayStore.getState()).toMatchObject({
+      trainingStatus: "failed",
+      trainingErrorMessage:
+        "Connect every layer in a single path from Input to Output before training.",
+    });
+  });
+
   it("同じステージを再クリアしてもポイントは初回分しか増えない", async () => {
     await usePlayStore.getState().startTraining();
 

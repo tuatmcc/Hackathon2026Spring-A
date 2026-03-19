@@ -369,3 +369,130 @@ export function sortLayerNodesTopologically(
 
   return sorted;
 }
+
+export function validateSequentialLayerGraph(
+  nodes: Node<LayerNodeData>[],
+  edges: Edge[],
+): void {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const indegree = new Map<string, number>([
+    [INPUT_NODE_ID, 0],
+    [OUTPUT_NODE_ID, 0],
+  ]);
+  const outdegree = new Map<string, number>([
+    [INPUT_NODE_ID, 0],
+    [OUTPUT_NODE_ID, 0],
+  ]);
+
+  for (const node of nodes) {
+    indegree.set(node.id, 0);
+    outdegree.set(node.id, 0);
+  }
+
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) {
+      continue;
+    }
+
+    const sourceExists =
+      isFixedNodeId(edge.source) || nodesById.has(edge.source);
+    const targetExists =
+      isFixedNodeId(edge.target) || nodesById.has(edge.target);
+
+    if (!sourceExists || !targetExists) {
+      throw new Error("Edge references a missing node.");
+    }
+
+    outdegree.set(edge.source, (outdegree.get(edge.source) ?? 0) + 1);
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+  }
+
+  if (nodes.length === 0) {
+    if (edges.length > 0) {
+      throw new Error("Remove dangling connections before training.");
+    }
+    return;
+  }
+
+  const inputConnections = outdegree.get(INPUT_NODE_ID) ?? 0;
+  const outputConnections = indegree.get(OUTPUT_NODE_ID) ?? 0;
+
+  if (inputConnections !== 1 || outputConnections !== 1) {
+    const hasBranch =
+      inputConnections > 1 ||
+      outputConnections > 1;
+
+    throw new Error(
+      hasBranch
+        ? "Branched networks are not supported. Build a single sequential path from Input to Output."
+        : "Connect every layer in a single path from Input to Output before training.",
+    );
+  }
+
+  for (const node of nodes) {
+    const incoming = indegree.get(node.id) ?? 0;
+    const outgoing = outdegree.get(node.id) ?? 0;
+
+    if (incoming === 1 && outgoing === 1) {
+      continue;
+    }
+
+    const hasBranch = incoming > 1 || outgoing > 1;
+
+    throw new Error(
+      hasBranch
+        ? "Branched networks are not supported. Build a single sequential path from Input to Output."
+        : "Connect every layer in a single path from Input to Output before training.",
+    );
+  }
+
+  const outgoingBySource = new Map<string, Edge[]>();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) {
+      continue;
+    }
+
+    const outgoing = outgoingBySource.get(edge.source);
+    if (outgoing) {
+      outgoing.push(edge);
+      continue;
+    }
+
+    outgoingBySource.set(edge.source, [edge]);
+  }
+
+  const visitedLayerIds = new Set<string>();
+  let currentId = INPUT_NODE_ID;
+
+  while (currentId !== OUTPUT_NODE_ID) {
+    const outgoing = outgoingBySource.get(currentId) ?? [];
+    if (outgoing.length !== 1) {
+      throw new Error("Connect every layer in a single path from Input to Output before training.");
+    }
+
+    const nextId = outgoing[0]?.target;
+    if (!nextId) {
+      throw new Error("Connect every layer in a single path from Input to Output before training.");
+    }
+
+    if (nextId === OUTPUT_NODE_ID) {
+      currentId = OUTPUT_NODE_ID;
+      continue;
+    }
+
+    if (!nodesById.has(nextId)) {
+      throw new Error("Edge references a missing node.");
+    }
+
+    if (visitedLayerIds.has(nextId)) {
+      throw new Error("Cycle detected in network graph.");
+    }
+
+    visitedLayerIds.add(nextId);
+    currentId = nextId;
+  }
+
+  if (visitedLayerIds.size !== nodes.length) {
+    throw new Error("Connect every layer in a single path from Input to Output before training.");
+  }
+}

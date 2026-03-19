@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
-import { isValidLayerConnection } from "./networkEditorUtils";
+import {
+  isValidLayerConnection,
+  validateSequentialLayerGraph,
+} from "./networkEditorUtils";
 import type { LayerNodeData, StageDef } from "../types";
 
 const imageStage: StageDef = {
@@ -179,5 +182,43 @@ describe("isValidLayerConnection", () => {
         vectorStage,
       ),
     ).toBe(true);
+  });
+});
+
+describe("validateSequentialLayerGraph", () => {
+  it("input から output までの単一路を許可する", () => {
+    const nodes = [createLayerNode("dense-1", "dense", 180)];
+    const edges: Edge[] = [
+      { id: "e1", source: "__input__", target: "dense-1" },
+      { id: "e2", source: "dense-1", target: "__output__" },
+    ];
+
+    expect(() => validateSequentialLayerGraph(nodes, edges)).not.toThrow();
+  });
+
+  it("入力からの分岐を拒否する", () => {
+    const nodes = [
+      createLayerNode("dense-1", "dense", 180),
+      createLayerNode("dense-2", "dense", 360),
+    ];
+    const edges: Edge[] = [
+      { id: "e1", source: "__input__", target: "dense-1" },
+      { id: "e2", source: "__input__", target: "dense-2" },
+      { id: "e3", source: "dense-1", target: "__output__" },
+      { id: "e4", source: "dense-2", target: "__output__" },
+    ];
+
+    expect(() => validateSequentialLayerGraph(nodes, edges)).toThrow(
+      "Branched networks are not supported.",
+    );
+  });
+
+  it("未接続の層がある構成を拒否する", () => {
+    const nodes = [createLayerNode("dense-1", "dense", 180)];
+    const edges: Edge[] = [{ id: "e1", source: "__input__", target: "dense-1" }];
+
+    expect(() => validateSequentialLayerGraph(nodes, edges)).toThrow(
+      "Connect every layer in a single path from Input to Output before training.",
+    );
   });
 });
