@@ -8,6 +8,7 @@ import { persist } from "zustand/middleware";
 import type { PageId } from "../types";
 import { SKILL_DATA } from "../config/skills";
 import { STAGE_DATA } from "../config/stages";
+import { isStageUnlocked } from "../stageProgress";
 
 /** 初期解放スキル (cost === 0) */
 const initialSkills = SKILL_DATA.filter((s) => s.cost === 0).map((s) => s.id);
@@ -99,6 +100,7 @@ export const useGameStore = create<GameStore>()(
 
       selectStage: (index: number) => {
         if (index < 0 || index >= STAGE_DATA.length) return;
+        if (!isStageUnlocked(STAGE_DATA, get().clearedStages, index)) return;
         set({ currentStageIndex: index, showMenu: false });
       },
     }),
