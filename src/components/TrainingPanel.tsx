@@ -85,16 +85,16 @@ export function TrainingPanel() {
       return null;
     }
 
-    const sortedNodes =
-      edges.length > 0 && nodes.length > 1
-        ? sortLayerNodesTopologically(nodes, edges)
-        : nodes;
-    const layers = sortedNodes.map((node) =>
-      sanitizeLayerNodeData(node.data, unlockedSkills),
-    );
     const cap = getModelParameterCap(unlockedSkills);
 
     try {
+      const sortedNodes =
+        edges.length > 0 && nodes.length > 1
+          ? sortLayerNodesTopologically(nodes, edges)
+          : nodes;
+      const layers = sortedNodes.map((node) =>
+        sanitizeLayerNodeData(node.data, unlockedSkills),
+      );
       const estimate = estimateModelParameterCount(layers, stage);
 
       return {
