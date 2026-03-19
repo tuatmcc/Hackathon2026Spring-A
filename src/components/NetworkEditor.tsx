@@ -13,6 +13,7 @@ import {
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
+  type OnReconnect,
   type Node,
   type Edge,
   type Connection,
@@ -35,6 +36,7 @@ interface Props {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
+  onReconnect: OnReconnect;
   stage: StageDef | null;
 }
 
@@ -44,9 +46,11 @@ export function NetworkEditor({
   onNodesChange,
   onEdgesChange,
   onConnect,
+  onReconnect,
   stage,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [reconnectingEdgeId, setReconnectingEdgeId] = useState<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{
     startClientX: number;
     startClientY: number;
@@ -64,6 +68,7 @@ export function NetworkEditor({
   const storedFixedNodes = usePlayStore((state) => state.fixedNodes);
   const initializeFixedNodes = usePlayStore((state) => state.initializeFixedNodes);
   const onFixedNodesChange = usePlayStore((state) => state.onFixedNodesChange);
+  const removeNode = usePlayStore((state) => state.removeNode);
 
   useEffect(() => {
     if (!stage) {
@@ -147,8 +152,10 @@ export function NetworkEditor({
 
   const validateConnection = useCallback(
     (connection: Connection | Edge) =>
-      isValidLayerConnection(connection, allNodes, allEdges, stage),
-    [allEdges, allNodes, stage],
+      isValidLayerConnection(connection, allNodes, allEdges, stage, {
+        ignoreEdgeIds: reconnectingEdgeId ? [reconnectingEdgeId] : [],
+      }),
+    [allEdges, allNodes, reconnectingEdgeId, stage],
   );
 
   const handleConnect = useCallback(
@@ -160,6 +167,49 @@ export function NetworkEditor({
     },
     [onConnect, validateConnection],
   );
+
+  const handleReconnect = useCallback(
+    (oldEdge: Edge, connection: Connection) => {
+      if (
+        !isValidLayerConnection(connection, allNodes, allEdges, stage, {
+          ignoreEdgeIds: [oldEdge.id],
+        })
+      ) {
+        return;
+      }
+
+      onReconnect(oldEdge, connection);
+      setReconnectingEdgeId(null);
+    },
+    [allEdges, allNodes, onReconnect, stage],
+  );
+
+  const handleReconnectStart = useCallback((_: unknown, edge: Edge) => {
+    setReconnectingEdgeId(edge.id);
+  }, []);
+
+  const handleReconnectEnd = useCallback(() => {
+    setReconnectingEdgeId(null);
+  }, []);
+
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      removeNode(nodeId);
+      setSelectedNodeId((current) => (current === nodeId ? null : current));
+    },
+    [removeNode],
+  );
+
+  useEffect(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    const selectedStillExists = allNodes.some((node) => node.id === selectedNodeId);
+    if (!selectedStillExists) {
+      setSelectedNodeId(null);
+    }
+  }, [allNodes, selectedNodeId]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -368,9 +418,13 @@ export function NetworkEditor({
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
+          onReconnect={handleReconnect}
+          onReconnectStart={handleReconnectStart}
+          onReconnectEnd={handleReconnectEnd}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           isValidConnection={validateConnection}
+          edgesReconnectable
           defaultEdgeOptions={{
             animated: true,
             style: { strokeWidth: 2, stroke: "#555" },
@@ -404,7 +458,10 @@ export function NetworkEditor({
           />
         )}
       </div>
-      <LayerConfigPanel selectedNodeId={selectedNodeId} />
+      <LayerConfigPanel
+        selectedNodeId={selectedNodeId}
+        onDeleteNode={handleDeleteNode}
+      />
     </div>
   );
 }

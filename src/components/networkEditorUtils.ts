@@ -10,6 +10,10 @@ interface FixedNodeDataLike {
   nodeType: FixedNodeKind;
 }
 
+interface ConnectionValidationOptions {
+  ignoreEdgeIds?: string[];
+}
+
 export function isFixedNodeId(nodeId: string): boolean {
   return nodeId === INPUT_NODE_ID || nodeId === OUTPUT_NODE_ID;
 }
@@ -221,9 +225,15 @@ export function isValidLayerConnection(
   nodes: Node[],
   edges: Edge[],
   stage: StageDef | null = null,
+  options: ConnectionValidationOptions = {},
 ): boolean {
   const { source, target } = connection;
   const hasFixedNodes = stage !== null;
+  const ignoredEdgeIds = new Set(options.ignoreEdgeIds ?? []);
+  const relevantEdges =
+    ignoredEdgeIds.size > 0
+      ? edges.filter((edge) => !ignoredEdgeIds.has(edge.id))
+      : edges;
 
   if (!source || !target || source === target) {
     return false;
@@ -266,24 +276,24 @@ export function isValidLayerConnection(
     return false;
   }
 
-  if (edges.some((edge) => edge.source === source && edge.target === target)) {
+  if (relevantEdges.some((edge) => edge.source === source && edge.target === target)) {
     return false;
   }
 
-  if (!isFixedNodeId(source) && edges.some((edge) => edge.source === source)) {
+  if (!isFixedNodeId(source) && relevantEdges.some((edge) => edge.source === source)) {
     return false;
   }
 
-  if (!isFixedNodeId(target) && edges.some((edge) => edge.target === target)) {
+  if (!isFixedNodeId(target) && relevantEdges.some((edge) => edge.target === target)) {
     return false;
   }
 
-  const sourceShape = inferNodeOutputShape(source, nodes, edges, stage);
+  const sourceShape = inferNodeOutputShape(source, nodes, relevantEdges, stage);
   if (!sourceShape || !canAcceptInputShape(targetNode, sourceShape)) {
     return false;
   }
 
-  return !wouldCreateCycle(edges, source, target);
+  return !wouldCreateCycle(relevantEdges, source, target);
 }
 
 export function sortLayerNodesTopologically(

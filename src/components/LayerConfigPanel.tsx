@@ -16,6 +16,7 @@ import { isFixedNodeId } from "./networkEditorUtils";
 
 interface Props {
   selectedNodeId: string | null;
+  onDeleteNode: (nodeId: string) => void;
 }
 
 function getSkillDescription(skillId: string | null) {
@@ -88,7 +89,7 @@ function HelpTooltip({ text }: { text: string }) {
   );
 }
 
-export function LayerConfigPanel({ selectedNodeId }: Props) {
+export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
   const nodes = usePlayStore((s) => s.nodes);
   const updateNodeData = usePlayStore((s) => s.updateNodeData);
@@ -151,8 +152,20 @@ export function LayerConfigPanel({ selectedNodeId }: Props) {
   return (
     <div className="layer-config-panel">
       <div className="layer-config__header">
-        <strong>{data.layerType} layer</strong>
-        <div className="layer-config__summary">{summaryParts.join(" / ")}</div>
+        <div className="layer-config__header-main">
+          <strong>{data.layerType} layer</strong>
+          <div className="layer-config__summary">{summaryParts.join(" / ")}</div>
+          <div className="layer-config__danger-note">
+            Deleting this layer also removes connected edges.
+          </div>
+        </div>
+        <button
+          type="button"
+          className="layer-config__delete-button"
+          onClick={() => onDeleteNode(node.id)}
+        >
+          Delete
+        </button>
       </div>
 
       <section className="layer-config__section">

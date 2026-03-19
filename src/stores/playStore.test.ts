@@ -249,4 +249,55 @@ describe("playStore fixed nodes", () => {
     expect(usePlayStore.getState().pendingStageClearId).toBe(linearStage.id);
     expect(usePlayStore.getState().pendingStageClearRewardPoints).toBe(0);
   });
+
+  it("ノード削除で接続エッジも一緒に消える", () => {
+    usePlayStore.setState({
+      nodes: [
+        {
+          id: "layer-1",
+          type: "layerNode",
+          position: { x: 120, y: 120 },
+          data: {
+            layerType: "dense",
+            units: 2,
+            activation: "sigmoid",
+            regularization: null,
+            regularizationRate: 0,
+          },
+        },
+      ],
+      edges: [{ id: "edge-1", source: "__input__", target: "layer-1" }],
+    });
+
+    usePlayStore.getState().removeNode("layer-1");
+
+    expect(usePlayStore.getState().nodes).toEqual([]);
+    expect(usePlayStore.getState().edges).toEqual([]);
+  });
+
+  it("既存エッジを別ノードへ再接続できる", () => {
+    usePlayStore.setState({
+      edges: [{ id: "edge-1", source: "__input__", target: "layer-1" }],
+    });
+
+    usePlayStore.getState().onReconnect(
+      { id: "edge-1", source: "__input__", target: "layer-1" },
+      {
+        source: "__input__",
+        target: "layer-2",
+        sourceHandle: null,
+        targetHandle: null,
+      },
+    );
+
+    expect(usePlayStore.getState().edges).toEqual([
+      {
+        id: "edge-1",
+        source: "__input__",
+        target: "layer-2",
+        sourceHandle: null,
+        targetHandle: null,
+      },
+    ]);
+  });
 });
