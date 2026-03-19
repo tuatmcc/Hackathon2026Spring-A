@@ -257,4 +257,68 @@ describe("ML統合テスト", () => {
       dataset.ys.dispose();
     });
   });
+
+  describe("Sin関数近似（回帰）", () => {
+    const stage: StageDef = {
+      id: "stage_sin",
+      name: "Sine Wave",
+      description: "y = sin(πx) の近似",
+      datasetId: "sin",
+      inputShape: [1],
+      taskType: "regression",
+      outputUnits: 1,
+      outputActivation: "linear",
+      lossFunction: "meanSquaredError",
+      targetAccuracy: 0,
+      targetLoss: 0.1,
+      rewardPoints: 150,
+    };
+
+    it("Dense層でsin関数を近似できる", async () => {
+      const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
+        { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
+        { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
+      ];
+
+      const model = buildModel(layers, stage, "adam", 0.01);
+      const dataset = getDatasetGenerator("sin")(500);
+
+      const result = await trainModel(model, dataset, {
+        epochs: 100,
+        batchSize: 32,
+        validationSplit: 0,
+      });
+
+      expect(result.finalLoss).toBeLessThan(0.2);
+
+      model.dispose();
+      dataset.xs.dispose();
+      dataset.ys.dispose();
+    });
+
+    it("深いネットワークでより精度よく近似できる", async () => {
+      const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 64, activation: "relu", regularization: null, regularizationRate: 0 },
+        { layerType: "dense", units: 64, activation: "relu", regularization: null, regularizationRate: 0 },
+        { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
+        { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
+      ];
+
+      const model = buildModel(layers, stage, "adam", 0.005);
+      const dataset = getDatasetGenerator("sin")(500);
+
+      const result = await trainModel(model, dataset, {
+        epochs: 150,
+        batchSize: 32,
+        validationSplit: 0,
+      });
+
+      expect(result.finalLoss).toBeLessThan(0.1);
+
+      model.dispose();
+      dataset.xs.dispose();
+      dataset.ys.dispose();
+    });
+  });
 });

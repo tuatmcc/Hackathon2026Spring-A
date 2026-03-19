@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateSpiralData } from "./datasets";
+import { generateSpiralData, generateSinData, getDatasetGenerator } from "./datasets";
 
 describe("datasets", () => {
   describe("generateSpiralData", () => {
@@ -74,6 +74,87 @@ describe("datasets", () => {
 
       expect(r0Max).toBeGreaterThan(0.5);
       expect(r1Max).toBeGreaterThan(0.5);
+
+      xs.dispose();
+      ys.dispose();
+    });
+  });
+
+  describe("generateSinData", () => {
+    it("正しい形状のテンソルを返す", () => {
+      const { xs, ys } = generateSinData(100);
+
+      expect(xs.shape).toEqual([100, 1]);
+      expect(ys.shape).toEqual([100, 1]);
+
+      xs.dispose();
+      ys.dispose();
+    });
+
+    it("入力値が[-1, 1]の範囲にある", () => {
+      const { xs } = generateSinData(200);
+
+      const data = xs.dataSync();
+      for (const x of data) {
+        expect(x).toBeGreaterThanOrEqual(-1);
+        expect(x).toBeLessThanOrEqual(1);
+      }
+
+      xs.dispose();
+    });
+
+    it("出力値がsin(πx)の範囲[-1, 1]にある", () => {
+      const { xs, ys } = generateSinData(200);
+
+      const xsData = xs.dataSync();
+      const ysData = ys.dataSync();
+
+      for (let i = 0; i < 200; i++) {
+        const x = xsData[i];
+        const expectedY = Math.sin(Math.PI * x);
+        const actualY = ysData[i];
+
+        expect(Math.abs(actualY - expectedY)).toBeLessThan(0.0001);
+      }
+
+      xs.dispose();
+      ys.dispose();
+    });
+
+    it("境界値で正しく計算される", () => {
+      const { xs, ys } = generateSinData(500);
+
+      const xsData = xs.dataSync();
+      const ysData = ys.dataSync();
+
+      let foundNearZero = false;
+      let foundNearOne = false;
+      let foundNearMinusOne = false;
+
+      for (let i = 0; i < 500; i++) {
+        const y = ysData[i];
+        if (Math.abs(y) < 0.1) foundNearZero = true;
+        if (y > 0.9) foundNearOne = true;
+        if (y < -0.9) foundNearMinusOne = true;
+      }
+
+      expect(foundNearZero).toBe(true);
+      expect(foundNearOne).toBe(true);
+      expect(foundNearMinusOne).toBe(true);
+
+      xs.dispose();
+      ys.dispose();
+    });
+  });
+
+  describe("getDatasetGenerator", () => {
+    it("sinデータセットを取得できる", () => {
+      const generator = getDatasetGenerator("sin");
+      expect(generator).toBeDefined();
+
+      const { xs, ys } = generator(50);
+      expect(xs.shape).toEqual([50, 1]);
+      expect(ys.shape).toEqual([50, 1]);
 
       xs.dispose();
       ys.dispose();

@@ -101,6 +101,23 @@ export function generateSpiralData(numSamples = 200): Dataset {
   };
 }
 
+/** y = sin(πx) 関数近似用データ（回帰） */
+export function generateSinData(numSamples = 200): Dataset {
+  const xsData: number[] = [];
+  const ysData: number[] = [];
+
+  for (let i = 0; i < numSamples; i++) {
+    const x = rand(-1, 1);
+    xsData.push(x);
+    ysData.push(Math.sin(Math.PI * x));
+  }
+
+  return {
+    xs: tf.tensor2d(xsData, [numSamples, 1]),
+    ys: tf.tensor2d(ysData, [numSamples, 1]),
+  };
+}
+
 /** 手書き数字データ（sklearn digits） */
 export async function loadDigitsData(): Promise<Dataset> {
   const response = await fetch("/data/digits.json");
@@ -130,6 +147,7 @@ const GENERATORS: Record<string, (n?: number) => Dataset> = {
   xor: generateXORData,
   circle: generateCircleData,
   spiral: generateSpiralData,
+  sin: generateSinData,
 };
 
 const ASYNC_LOADERS: Record<string, DatasetLoader> = {
