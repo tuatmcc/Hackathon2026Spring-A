@@ -102,6 +102,7 @@
   max-width: 520px;
   max-height: 80vh;
   overflow-y: auto;
+  text-align: left;
 }
 
 .menu-header {

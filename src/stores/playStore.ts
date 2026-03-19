@@ -49,6 +49,7 @@ interface PlayStore {
   // --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) => void;
   addMetrics: (m: TrainingMetrics) => void;
+  resetTrainingState: () => void;
 
   // --- リセット ---
   resetPlay: () => void;
@@ -95,6 +96,11 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     set({ trainingStatus: status }),
   addMetrics: (m: TrainingMetrics) =>
     set((s) => ({ metrics: [...s.metrics, m] })),
+  resetTrainingState: () =>
+    set({
+      trainingStatus: initialState.trainingStatus,
+      metrics: initialState.metrics,
+    }),
 
   // --- リセット ---
   resetPlay: () => set({ ...initialState }),
