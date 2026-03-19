@@ -17,6 +17,7 @@ import { STAGE_DATA } from "../config/stages";
 import { buildModel } from "../ml/buildModel";
 import { getDatasetGenerator } from "../ml/datasets";
 import { trainModel } from "../ml/trainer";
+import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
 import type { LayerNodeData } from "../types";
 
 export function PlayPage() {
@@ -47,8 +48,9 @@ export function PlayPage() {
     setTrainingStatus("training");
 
     try {
-      // 1. nodes → LayerNodeData[] に変換（TODO: トポロジカルソート）
-      const layers: LayerNodeData[] = nodes.map((n) => n.data);
+      // 1. 接続順にノードを並べ替えて LayerNodeData[] に変換
+      const sortedNodes = sortLayerNodesTopologically(nodes, edges);
+      const layers: LayerNodeData[] = sortedNodes.map((node) => node.data);
 
       // 2. モデル構築
       const model = buildModel(layers, stage, selectedOptimizer, learningRate);

@@ -19,7 +19,7 @@ function createLayerNode(layerType: string): Node<LayerNodeData> {
   nodeIdCounter++;
   return {
     id: `layer-${nodeIdCounter}`,
-    type: "default",
+    type: "layerNode",
     position: { x: 100, y: 80 * nodeIdCounter },
     data: {
       layerType,

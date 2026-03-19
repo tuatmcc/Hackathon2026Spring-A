@@ -15,10 +15,14 @@ import {
   type OnConnect,
   type Node,
   type Edge,
+  type Connection,
+  type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { NodePalette } from "./NodePalette";
 import { LayerConfigPanel } from "./LayerConfigPanel";
+import { LayerNode } from "./LayerNode";
+import { isValidLayerConnection } from "./networkEditorUtils";
 import type { LayerNodeData } from "../types";
 
 interface Props {
@@ -38,6 +42,10 @@ export function NetworkEditor({
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
+  const nodeTypes: NodeTypes = {
+    layerNode: LayerNode,
+  };
+
   const handleNodeClick = useCallback((_: unknown, node: Node) => {
     setSelectedNodeId(node.id);
   }, []);
@@ -46,18 +54,45 @@ export function NetworkEditor({
     setSelectedNodeId(null);
   }, []);
 
+  const validateConnection = useCallback(
+    (connection: Connection | Edge) =>
+      isValidLayerConnection(connection, nodes, edges),
+    [edges, nodes],
+  );
+
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      if (!validateConnection(connection)) {
+        return;
+      }
+      onConnect(connection);
+    },
+    [onConnect, validateConnection],
+  );
+
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="network-editor">
       <NodePalette />
-      <div style={{ flex: 1 }}>
+      <div className="network-editor__canvas">
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
+          onConnect={handleConnect}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
+          isValidConnection={validateConnection}
+          defaultEdgeOptions={{
+            animated: true,
+            style: { strokeWidth: 2, stroke: "#555" },
+          }}
+          connectionLineStyle={{
+            strokeWidth: 3,
+            stroke: "#1f1f1f",
+          }}
+          fitViewOptions={{ padding: 0.2 }}
           fitView
         >
           <Background />
