@@ -35,6 +35,7 @@ import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
 
 interface PlayStore {
   // --- グラフ（見た目の情報）---
+  fixedNodes: Node[];
   nodes: Node<LayerNodeData>[];
   edges: Edge[];
 
@@ -54,7 +55,9 @@ interface PlayStore {
 
   // --- グラフ操作 ---
   onNodesChange: (changes: NodeChange[]) => void;
+  onFixedNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
+  initializeFixedNodes: () => void;
   onConnect: (connection: Connection) => void;
   addNode: (node: Node<LayerNodeData>) => void;
   updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) => void;
@@ -79,6 +82,7 @@ interface PlayStore {
 }
 
 const initialState = {
+  fixedNodes: [] as Node[],
   nodes: [] as Node<LayerNodeData>[],
   edges: [] as Edge[],
   selectedOptimizer: "sgd",
@@ -97,8 +101,42 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   ...initialState,
 
   // --- グラフ操作 ---
+  initializeFixedNodes: () => {
+    const existingIds = new Set(get().fixedNodes.map((node) => node.id));
+    if (existingIds.has("__input__") && existingIds.has("__output__")) {
+      return;
+    }
+
+    set({
+      fixedNodes: [
+        {
+          id: "__input__",
+          type: "fixedNode",
+          position: { x: 0, y: 150 },
+          data: {},
+          selectable: true,
+          deletable: false,
+        },
+        {
+          id: "__output__",
+          type: "fixedNode",
+          position: { x: 600, y: 150 },
+          data: {},
+          selectable: true,
+          deletable: false,
+        },
+      ],
+    });
+  },
   onNodesChange: (changes: NodeChange[]) =>
     set({ nodes: applyNodeChanges(changes, get().nodes) as Node<LayerNodeData>[] }),
+  onFixedNodesChange: (changes: NodeChange[]) =>
+    set({
+      fixedNodes: applyNodeChanges(
+        changes,
+        get().fixedNodes,
+      ).filter((node) => node.id === "__input__" || node.id === "__output__"),
+    }),
   onEdgesChange: (changes: EdgeChange[]) =>
     set({ edges: applyEdgeChanges(changes, get().edges) }),
   onConnect: (connection: Connection) =>

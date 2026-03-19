@@ -5,12 +5,11 @@
 // React Flow のカスタムノード、D&D、バリデーション等を実装。
 // ============================================================
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
-  applyNodeChanges,
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
@@ -27,6 +26,7 @@ import { LayerNode } from "./LayerNode";
 import { FixedNode } from "./FixedNode";
 import { createLayerNode } from "./layerNodeFactory";
 import { isValidLayerConnection, isFixedNodeId } from "./networkEditorUtils";
+import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData, StageDef } from "../types";
 
 interface Props {
@@ -38,9 +38,6 @@ interface Props {
   stage: StageDef | null;
 }
 
-const INPUT_NODE_ID = "__input__";
-const OUTPUT_NODE_ID = "__output__";
-
 export function NetworkEditor({
   nodes,
   edges,
@@ -50,7 +47,6 @@ export function NetworkEditor({
   stage,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [fixedNodes, setFixedNodes] = useState<Node[]>([]);
   const [selectionBox, setSelectionBox] = useState<{
     startClientX: number;
     startClientY: number;
@@ -65,40 +61,38 @@ export function NetworkEditor({
     ReactFlowInstance<Node, Edge> | null
   >(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const storedFixedNodes = usePlayStore((state) => state.fixedNodes);
+  const initializeFixedNodes = usePlayStore((state) => state.initializeFixedNodes);
+  const onFixedNodesChange = usePlayStore((state) => state.onFixedNodesChange);
 
-  // Initialize fixed nodes when stage changes
-  useMemo(() => {
+  useEffect(() => {
     if (!stage) {
-      setFixedNodes([]);
       return;
     }
-    setFixedNodes([
-      {
-        id: INPUT_NODE_ID,
-        type: "fixedNode",
-        position: { x: 0, y: 150 },
-        data: {
-          nodeType: "input",
-          shape: stage.inputShape,
-        },
-        selectable: true,
-        deletable: false,
-      },
-      {
-        id: OUTPUT_NODE_ID,
-        type: "fixedNode",
-        position: { x: 600, y: 150 },
-        data: {
-          nodeType: "output",
-          shape: [stage.outputUnits],
-          activation: stage.outputActivation,
-          units: stage.outputUnits,
-        },
-        selectable: true,
-        deletable: false,
-      },
-    ]);
-  }, [stage?.id]);
+    initializeFixedNodes();
+  }, [initializeFixedNodes, stage]);
+
+  const fixedNodes = useMemo(() => {
+    if (!stage) {
+      return [];
+    }
+
+    return storedFixedNodes.map((node) => ({
+      ...node,
+      data:
+        node.id === "__input__"
+          ? {
+              nodeType: "input",
+              shape: stage.inputShape,
+            }
+          : {
+              nodeType: "output",
+              shape: [stage.outputUnits],
+              activation: stage.outputActivation,
+              units: stage.outputUnits,
+            },
+    }));
+  }, [stage, storedFixedNodes]);
   
   const allNodes = useMemo(() => {
     if (!stage) return nodes;
@@ -122,7 +116,7 @@ export function NetworkEditor({
       );
       
       if (fixedChanges.length > 0) {
-        setFixedNodes((prev) => applyNodeChanges(fixedChanges, prev));
+        onFixedNodesChange(fixedChanges);
       }
 
       const otherChanges = changes.filter(
@@ -133,7 +127,7 @@ export function NetworkEditor({
         onNodesChange(otherChanges);
       }
     },
-    [onNodesChange],
+    [onFixedNodesChange, onNodesChange],
   );
 
   const handleEdgesChange: OnEdgesChange = useCallback(
@@ -153,7 +147,7 @@ export function NetworkEditor({
 
   const validateConnection = useCallback(
     (connection: Connection | Edge) =>
-      isValidLayerConnection(connection, allNodes, allEdges, stage !== null),
+      isValidLayerConnection(connection, allNodes, allEdges, stage),
     [allEdges, allNodes, stage],
   );
 
