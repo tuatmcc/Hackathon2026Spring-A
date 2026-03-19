@@ -168,11 +168,15 @@ App ──────┤
 **ファイル:** `ml/buildModel.ts`, `ml/datasets.ts`, `ml/trainer.ts`
 
 **やること:**
-- [ ] buildModel: layerType ごとの分岐 (conv2d, flatten)
-- [ ] buildModel: 正則化 (L1/L2 kernelRegularizer)
-- [ ] datasets: spiral データの実装
-- [ ] datasets: MNIST 等の追加データセット
-- [ ] trainer: 学習の中断機能
+- [x] buildModel: layerType ごとの分岐 (conv2d, flatten)
+- [x] buildModel: 正則化 (L1/L2 kernelRegularizer)
+- [x] datasets: spiral データの実装
+- [x] datasets: digits (手書き数字 8×8) データセット
+- [x] datasets: sin 関数近似データ（回帰タスク）
+- [x] trainer: 学習の中断機能
+- [x] テストコード: ユニットテスト・統合テスト
+
+**ドキュメント:** `docs/ml.md` を参照
 
 **依存:** `types.ts` の `LayerNodeData`, `StageDef`, `TrainingMetrics`。React に依存しない。
 

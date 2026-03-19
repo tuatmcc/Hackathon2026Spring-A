@@ -14,11 +14,6 @@ import { NetworkEditor } from "../components/NetworkEditor";
 import { TrainingPanel } from "../components/TrainingPanel";
 import { DataVisualization } from "../components/DataVisualization";
 import { STAGE_DATA } from "../config/stages";
-import { buildModel } from "../ml/buildModel";
-import { getDatasetGenerator } from "../ml/datasets";
-import { trainModel } from "../ml/trainer";
-import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
-import type { LayerNodeData } from "../types";
 
 export function PlayPage() {
   const {
@@ -28,57 +23,10 @@ export function PlayPage() {
     onEdgesChange,
     onConnect,
     trainingStatus,
-    metrics,
-    selectedOptimizer,
-    learningRate,
-    batchSize,
-    epochs,
-    setTrainingStatus,
-    addMetrics,
-    // resetPlay, // TODO: ステージ切替時にリセットする
   } = usePlayStore();
 
-  const { currentStageIndex, addPoints, clearStage } = useGameStore();
+  const { currentStageIndex } = useGameStore();
   const stage = STAGE_DATA[currentStageIndex];
-
-  const handleStartTraining = async () => {
-    if (!stage) return;
-
-    // メトリクスだけリセット（グラフは維持）
-    setTrainingStatus("training");
-
-    try {
-      // 1. 接続順にノードを並べ替えて LayerNodeData[] に変換
-      const sortedNodes = sortLayerNodesTopologically(nodes, edges);
-      const layers: LayerNodeData[] = sortedNodes.map((node) => node.data);
-
-      // 2. モデル構築
-      const model = buildModel(layers, stage, selectedOptimizer, learningRate);
-
-      // 3. データ生成
-      const dataset = getDatasetGenerator(stage.datasetId)();
-
-      // 4. 学習実行
-      const result = await trainModel(model, dataset, {
-        epochs,
-        batchSize,
-        onEpochEnd: (m) => addMetrics(m),
-      });
-
-      // 5. 結果判定
-      const accuracy = result.finalAccuracy ?? 0;
-      if (accuracy >= stage.targetAccuracy) {
-        clearStage(stage.id);
-        addPoints(stage.rewardPoints);
-        setTrainingStatus("completed");
-      } else {
-        setTrainingStatus("failed");
-      }
-    } catch (e) {
-      console.error("Training failed:", e);
-      setTrainingStatus("failed");
-    }
-  };
 
   return (
     <div style={{ display: "flex", height: "100%" }}>
@@ -112,13 +60,9 @@ export function PlayPage() {
           </div>
         )}
 
-        <DataVisualization stage={stage ?? null} />
+        <DataVisualization />
 
-        <TrainingPanel
-          trainingStatus={trainingStatus}
-          metrics={metrics}
-          onStartTraining={handleStartTraining}
-        />
+        <TrainingPanel />
 
         {trainingStatus === "completed" && (
           <div style={{ padding: 16, color: "#4caf50", fontWeight: "bold" }}>
