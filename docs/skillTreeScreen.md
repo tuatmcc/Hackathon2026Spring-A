@@ -54,9 +54,9 @@
 
 | スキルID | 名前 | コスト | 前提 |
 |---|---|---|---|
-| `relu` | ReLU | 0 (初期解放) | なし |
-| `sigmoid` | Sigmoid | 50 | relu |
-| `gelu` | GELU | 200 | relu |
+| `sigmoid` | Sigmoid | 0 (初期解放) | なし |
+| `relu` | ReLU | 50 | sigmoid |
+| `gelu` | GELU | 120 | relu |
 
 ### 学習手法ツリー (`treeId: "optimizer"`)
 

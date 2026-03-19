@@ -108,7 +108,7 @@ export function TrainingPanel() {
             type="number"
             value={learningRate}
             min={0.0001}
-            step={0.01}
+            step={0.001}
             onChange={(e) => setLearningRate(Number(e.target.value))}
             disabled={trainingStatus === "training"}
             style={inputStyle}

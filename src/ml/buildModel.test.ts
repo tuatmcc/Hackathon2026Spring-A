@@ -80,6 +80,22 @@ describe("buildModel", () => {
         model.dispose();
       }
     });
+
+    it("同じseedなら同じ初期重みになる", () => {
+      const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
+      ];
+
+      const first = buildModel(layers, testStage, "sgd", 0.1, 4242);
+      const second = buildModel(layers, testStage, "sgd", 0.1, 4242);
+
+      expect(Array.from(first.getWeights()[0]?.dataSync() ?? [])).toEqual(
+        Array.from(second.getWeights()[0]?.dataSync() ?? []),
+      );
+
+      first.dispose();
+      second.dispose();
+    });
   });
 
   describe("conv2d層", () => {

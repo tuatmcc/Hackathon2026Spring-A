@@ -24,6 +24,13 @@ export interface SkillDef {
 
 // ---------- ステージ (マスターデータ) ----------
 
+export interface StageTrainingPreset {
+  learningRate: number;
+  batchSize: number;
+  epochs: number;
+  recommendedOptimizer?: string;
+}
+
 export interface StageDef {
   id: string;
   name: string;
@@ -45,6 +52,8 @@ export interface StageDef {
   /** クリア条件: 回帰は MSE <= targetLoss */
   targetLoss?: number;
   rewardPoints: number;
+  recommendedLayerTypes?: string[];
+  trainingPreset?: StageTrainingPreset;
 }
 
 // ---------- プレイ中のノードデータ ----------

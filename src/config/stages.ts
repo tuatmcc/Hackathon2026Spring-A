@@ -1,5 +1,7 @@
 import type { StageDef } from "../types";
 
+const DEFAULT_EPOCHS = 50;
+
 /**
  * ステージマスターデータ。
  * 最終層の activation と lossFunction はステージが固定する。
@@ -13,7 +15,7 @@ export const STAGE_DATA: StageDef[] = [
     briefing:
       "最初の演習です。1本の境界線で分けられる素直なデータなので、まずは基礎の操作に慣れましょう。",
     hint:
-      "初期解放の Dense と ReLU、SGD だけでも十分です。まずは薄いネットワークで試すのが近道です。",
+      "初期解放の Dense と Sigmoid、SGD だけでも十分です。まずは薄いネットワークで試すのが近道です。",
     clearMessage:
       "基本の分類は突破です。ここから先は、単純な直線だけでは切れない相手が待っています。",
     datasetId: "linear",
@@ -22,8 +24,14 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.95,
+    targetAccuracy: 0.93,
     rewardPoints: 100,
+    trainingPreset: {
+      learningRate: 0.1,
+      batchSize: 32,
+      epochs: DEFAULT_EPOCHS,
+      recommendedOptimizer: "sgd",
+    },
   },
   {
     id: "stage_xor",
@@ -32,7 +40,7 @@ export const STAGE_DATA: StageDef[] = [
     briefing:
       "ここから一気にゲームらしくなります。1本の線では解けない配置なので、隠れ層の意味を体感するステージです。",
     hint:
-      "Dense ノードを追加して中間表現を作ると突破しやすくなります。ユニット数も少し増やしてみてください。",
+      "Dense ノードを追加して中間表現を作ると突破しやすくなります。Sigmoid のままでも挑めますが、ReLU を開放すると突破筋が見えやすくなります。",
     clearMessage:
       "非線形の壁を越えました。ネットワークを重ねる価値が見え始める区間です。",
     datasetId: "xor",
@@ -41,8 +49,14 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.9,
-    rewardPoints: 250,
+    targetAccuracy: 0.85,
+    rewardPoints: 150,
+    trainingPreset: {
+      learningRate: 0.05,
+      batchSize: 32,
+      epochs: DEFAULT_EPOCHS,
+      recommendedOptimizer: "sgd",
+    },
   },
   {
     id: "stage_circle",
@@ -51,7 +65,7 @@ export const STAGE_DATA: StageDef[] = [
     briefing:
       "外側と内側を見分けるラウンドです。境界が曲がるぶん、活性化やユニット数の調整が効いてきます。",
     hint:
-      "ReLU だけで厳しければ活性化関数の解放も視野です。学習率を少し落とすと安定することがあります。",
+      "ここからは Adam がかなり有効です。学習率を少し落として、層を 2 枚にすると安定しやすくなります。",
     clearMessage:
       "曲線の境界を描けました。構成だけでなく、学習条件の相性も見えてきたはずです。",
     datasetId: "circle",
@@ -60,8 +74,14 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.9,
-    rewardPoints: 300,
+    targetAccuracy: 0.88,
+    rewardPoints: 200,
+    trainingPreset: {
+      learningRate: 0.01,
+      batchSize: 32,
+      epochs: DEFAULT_EPOCHS,
+      recommendedOptimizer: "adam",
+    },
   },
   {
     id: "stage_spiral",
@@ -70,7 +90,7 @@ export const STAGE_DATA: StageDef[] = [
     briefing:
       "本格的な難所です。渦巻きは表現力も学習の安定性も両方要求してくるので、試行錯誤が前提になります。",
     hint:
-      "層を増やし、必要なら Adam を解放してみてください。ユニット数より、段数と学習条件の噛み合わせが重要です。",
+      "Adam を使い、層を増やして表現力を確保してください。渦巻きは深さと学習条件の両方が噛み合うと一気に伸びます。",
     clearMessage:
       "難所突破です。ここまで来れば、かなり手応えのあるモデル設計ができています。",
     datasetId: "spiral",
@@ -79,8 +99,14 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 1,
     outputActivation: "sigmoid",
     lossFunction: "binaryCrossentropy",
-    targetAccuracy: 0.85,
-    rewardPoints: 500,
+    targetAccuracy: 0.9,
+    rewardPoints: 300,
+    trainingPreset: {
+      learningRate: 0.01,
+      batchSize: 32,
+      epochs: DEFAULT_EPOCHS,
+      recommendedOptimizer: "adam",
+    },
   },
   {
     id: "stage_sin",
@@ -89,7 +115,7 @@ export const STAGE_DATA: StageDef[] = [
     briefing:
       "分類ではなく回帰のステージです。正解ラベルを当てるのではなく、滑らかな曲線そのものを近似します。",
     hint:
-      "精度ではなく loss を下げるのが目的です。学習率を大きくしすぎると波形が暴れやすいので注意してください。",
+      "精度ではなく loss を下げるのが目的です。Adam と小さめの学習率で、滑らかな近似を狙ってください。",
     clearMessage:
       "分類以外の課題にも対応できました。モデルの表現力が、形そのものを追える段階に入っています。",
     datasetId: "sin",
@@ -99,17 +125,23 @@ export const STAGE_DATA: StageDef[] = [
     outputActivation: "linear",
     lossFunction: "meanSquaredError",
     targetAccuracy: 0,
-    targetLoss: 0.05,
+    targetLoss: 0.03,
     rewardPoints: 150,
+    trainingPreset: {
+      learningRate: 0.01,
+      batchSize: 32,
+      epochs: DEFAULT_EPOCHS,
+      recommendedOptimizer: "adam",
+    },
   },
   {
     id: "stage_digits",
     name: "手書き数字認識",
-    description: "8×8の手書き数字を分類しよう。Conv2DとFlattenが必要。",
+    description: "8×8の手書き数字を分類しよう。Conv2D と Flatten があると安定しやすい。",
     briefing:
-      "最終試験です。画像入力を扱うため、畳み込みと Flatten を組み合わせた構成が前提になります。",
+      "最終試験です。画像入力を扱うので、畳み込みと Flatten を組み合わせると精度を伸ばしやすくなります。",
     hint:
-      "Conv2D を置いたあとに Flatten を挟み、最後に Dense へつなぐ流れを意識してください。浅すぎると特徴を拾いきれません。",
+      "Conv2D を置いたあとに Flatten を挟み、最後に Dense へつなぐ流れを意識してください。無くても挑戦できますが、この構成のほうが短い学習で届きやすくなります。",
     clearMessage:
       "画像分類の初歩を突破しました。NN Roguelike のメインループは、ここでひと通り制覇です。",
     datasetId: "digits",
@@ -118,7 +150,14 @@ export const STAGE_DATA: StageDef[] = [
     outputUnits: 10,
     outputActivation: "softmax",
     lossFunction: "categoricalCrossentropy",
-    targetAccuracy: 0.85,
-    rewardPoints: 200,
+    targetAccuracy: 0.93,
+    rewardPoints: 250,
+    recommendedLayerTypes: ["conv2d", "flatten"],
+    trainingPreset: {
+      learningRate: 0.001,
+      batchSize: 32,
+      epochs: DEFAULT_EPOCHS,
+      recommendedOptimizer: "adam",
+    },
   },
 ];

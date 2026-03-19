@@ -18,10 +18,12 @@ import type {
 } from "@xyflow/react";
 import type {
   LayerNodeData,
+  StageDef,
   TrainingMetrics,
   TrainingStatus,
 } from "../types";
 import { STAGE_DATA } from "../config/stages";
+import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "./gameStore";
 import { useVisualizerStore } from "./visualizerStore";
 import { buildModel } from "../ml/buildModel";
@@ -32,6 +34,8 @@ import {
   deserializeDataset,
 } from "../ml/visualization";
 import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
+import { deriveSeed } from "../ml/random";
+import { sanitizeLayerNodeData } from "../layerSizeOptions";
 
 interface PlayStore {
   // --- グラフ（見た目の情報）---
@@ -52,6 +56,8 @@ interface PlayStore {
   nextTrainingRunId: number;
   lastTrainingResult: TrainResult | null;
   pendingStageClearId: string | null;
+  configuredStageId: string | null;
+  trainingErrorMessage: string | null;
 
   // --- グラフ操作 ---
   onNodesChange: (changes: NodeChange[]) => void;
@@ -67,6 +73,7 @@ interface PlayStore {
   setLearningRate: (lr: number) => void;
   setBatchSize: (bs: number) => void;
   setEpochs: (epochs: number) => void;
+  syncStageTrainingSettings: (stage: StageDef, unlockedSkills: string[]) => void;
 
 // --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) => void;
@@ -95,7 +102,17 @@ const initialState = {
   nextTrainingRunId: 0,
   lastTrainingResult: null as TrainResult | null,
   pendingStageClearId: null as string | null,
+  configuredStageId: null as string | null,
+  trainingErrorMessage: null as string | null,
 };
+
+const optimizerSkillIds = SKILL_DATA
+  .filter((skill) => skill.treeId === "optimizer")
+  .map((skill) => skill.id);
+
+function getAvailableOptimizerIds(unlockedSkills: string[]) {
+  return optimizerSkillIds.filter((skillId) => unlockedSkills.includes(skillId));
+}
 
 export const usePlayStore = create<PlayStore>()((set, get) => ({
   ...initialState,
@@ -141,20 +158,72 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     set({ edges: applyEdgeChanges(changes, get().edges) }),
   onConnect: (connection: Connection) =>
     set({ edges: addEdge(connection, get().edges) }),
-  addNode: (node: Node<LayerNodeData>) =>
-    set((s) => ({ nodes: [...s.nodes, node] })),
-  updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) =>
+  addNode: (node: Node<LayerNodeData>) => {
+    const unlockedSkills = useGameStore.getState().unlockedSkills;
+    set((s) => ({
+      nodes: [
+        ...s.nodes,
+        {
+          ...node,
+          data: sanitizeLayerNodeData(node.data, unlockedSkills),
+        },
+      ],
+    }));
+  },
+  updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) => {
+    const unlockedSkills = useGameStore.getState().unlockedSkills;
     set((s) => ({
       nodes: s.nodes.map((n) =>
-        n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n,
+        n.id === nodeId
+          ? {
+              ...n,
+              data: sanitizeLayerNodeData({ ...n.data, ...data }, unlockedSkills),
+            }
+          : n,
       ),
-    })),
+    }));
+  },
 
   // --- 学習条件操作 ---
   setSelectedOptimizer: (id: string) => set({ selectedOptimizer: id }),
   setLearningRate: (lr: number) => set({ learningRate: lr }),
   setBatchSize: (bs: number) => set({ batchSize: bs }),
   setEpochs: (epochs: number) => set({ epochs }),
+  syncStageTrainingSettings: (stage, unlockedSkills) =>
+    set((state) => {
+      const stageChanged = state.configuredStageId !== stage.id;
+      const availableOptimizerIds = getAvailableOptimizerIds(unlockedSkills);
+      const recommendedOptimizer = stage.trainingPreset?.recommendedOptimizer;
+      const preferredOptimizer =
+        recommendedOptimizer && availableOptimizerIds.includes(recommendedOptimizer)
+          ? recommendedOptimizer
+          : availableOptimizerIds[0] ?? state.selectedOptimizer;
+
+      const nextState: Partial<PlayStore> = {};
+
+      if (stageChanged) {
+        nextState.configuredStageId = stage.id;
+        nextState.learningRate =
+          stage.trainingPreset?.learningRate ?? state.learningRate;
+        nextState.batchSize = stage.trainingPreset?.batchSize ?? state.batchSize;
+        nextState.epochs = stage.trainingPreset?.epochs ?? state.epochs;
+        nextState.trainingStatus = initialState.trainingStatus;
+        nextState.metrics = [];
+        nextState.activeTrainingRunId = null;
+        nextState.lastTrainingResult = null;
+        nextState.pendingStageClearId = null;
+        nextState.trainingErrorMessage = null;
+      }
+
+      if (
+        !availableOptimizerIds.includes(state.selectedOptimizer) ||
+        (stageChanged && preferredOptimizer !== state.selectedOptimizer)
+      ) {
+        nextState.selectedOptimizer = preferredOptimizer;
+      }
+
+      return Object.keys(nextState).length > 0 ? nextState : state;
+    }),
 
   // --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) =>
@@ -167,6 +236,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       metrics: initialState.metrics,
       lastTrainingResult: initialState.lastTrainingResult,
       pendingStageClearId: initialState.pendingStageClearId,
+      trainingErrorMessage: initialState.trainingErrorMessage,
     }),
   beginTrainingRun: () => {
     const runId = get().nextTrainingRunId + 1;
@@ -184,11 +254,31 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     const stage = STAGE_DATA[currentStageIndex];
     if (!stage) return;
 
+    const { nodes, edges, selectedOptimizer, learningRate, epochs, batchSize } = get();
+    const sortedNodes =
+      edges.length > 0 && nodes.length > 1
+        ? sortLayerNodesTopologically(nodes, edges)
+        : nodes;
+    const layers: LayerNodeData[] = sortedNodes.map((node) =>
+      sanitizeLayerNodeData(node.data, useGameStore.getState().unlockedSkills),
+    );
+
     const visualizerStore = useVisualizerStore.getState();
     const datasetPreview = await visualizerStore.prepareVisualization(stage);
-    if (!datasetPreview) return;
+    if (!datasetPreview) {
+      set({
+        trainingStatus: "failed",
+        metrics: [],
+        activeTrainingRunId: null,
+        lastTrainingResult: null,
+        pendingStageClearId: null,
+        trainingErrorMessage: "Failed to prepare the dataset.",
+      });
+      return;
+    }
 
     const runId = get().beginTrainingRun();
+    const trainingSeed = deriveSeed(currentStageIndex + 1, runId);
     get().resetTrainingState();
     set({ trainingStatus: "training" });
 
@@ -196,16 +286,12 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     let model: ReturnType<typeof buildModel> | null = null;
 
     try {
-      const { nodes, edges, selectedOptimizer, learningRate, epochs, batchSize } = get();
-      const sortedNodes = edges.length > 0 && nodes.length > 1
-        ? sortLayerNodesTopologically(nodes, edges)
-        : nodes;
-      const layers: LayerNodeData[] = sortedNodes.map((node) => node.data);
       const activeModel = buildModel(
         layers,
         stage,
         selectedOptimizer,
         learningRate,
+        trainingSeed,
       );
       model = activeModel;
 
@@ -219,6 +305,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       const result = await trainModel(activeModel, dataset, {
         epochs,
         batchSize,
+        seed: trainingSeed,
         onEpochEnd: (metrics) => {
           if (!get().isTrainingRunCurrent(runId)) {
             return;
@@ -253,12 +340,14 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
           trainingStatus: "completed",
           lastTrainingResult: result,
           pendingStageClearId: stage.id,
+          trainingErrorMessage: null,
         });
       } else {
         set({
           trainingStatus: "failed",
           lastTrainingResult: result,
           pendingStageClearId: null,
+          trainingErrorMessage: null,
         });
       }
     } catch (error) {
@@ -266,7 +355,10 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       if (get().isTrainingRunCurrent(runId)) {
         set({
           trainingStatus: "failed",
+          lastTrainingResult: null,
           pendingStageClearId: null,
+          trainingErrorMessage:
+            error instanceof Error ? error.message : "Training failed.",
         });
       }
     } finally {
