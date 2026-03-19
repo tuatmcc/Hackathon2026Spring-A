@@ -124,7 +124,6 @@ describe("datasets", () => {
     it("境界値で正しく計算される", () => {
       const { xs, ys } = generateSinData(500);
 
-      const xsData = xs.dataSync();
       const ysData = ys.dataSync();
 
       let foundNearZero = false;

@@ -73,6 +73,59 @@ describe("trainer", () => {
       dataset.xs.dispose();
       dataset.ys.dispose();
     });
+
+    it("accuracy / val_accuracy キーでも最終精度を取得できる", async () => {
+      const dataset = generateSpiralData(8);
+      const fit = async (_xs: tf.Tensor, _ys: tf.Tensor, config: tf.ModelFitArgs) => {
+        const callbacks = config.callbacks as
+          | tf.CustomCallbackArgs
+          | tf.CustomCallbackArgs[]
+          | undefined;
+        const firstCallback = Array.isArray(callbacks) ? callbacks[0] : callbacks;
+
+        await firstCallback?.onEpochEnd?.(0, {
+          loss: 0.8,
+          val_loss: 0.7,
+          accuracy: 0.6,
+          val_accuracy: 0.65,
+        });
+
+        return {
+          history: {
+            loss: [0.8, 0.5],
+            val_loss: [0.7, 0.4],
+            accuracy: [0.6, 0.72],
+            val_accuracy: [0.65, 0.78],
+          },
+        } as unknown as tf.History;
+      };
+      const mockModel = {
+        fit,
+        stopTraining: false,
+      } as unknown as tf.LayersModel;
+
+      const epochs: Array<{ accuracy?: number; valAccuracy?: number }> = [];
+      const result = await trainModel(mockModel, dataset, {
+        epochs: 2,
+        batchSize: 4,
+        onEpochEnd: (metrics) => {
+          epochs.push({
+            accuracy: metrics.accuracy,
+            valAccuracy: metrics.valAccuracy,
+          });
+        },
+      });
+
+      expect(epochs[0]).toEqual({
+        accuracy: 0.6,
+        valAccuracy: 0.65,
+      });
+      expect(result.finalAccuracy).toBe(0.78);
+      expect(result.finalLoss).toBe(0.5);
+
+      dataset.xs.dispose();
+      dataset.ys.dispose();
+    });
   });
 
   describe("学習中断", () => {

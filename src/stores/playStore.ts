@@ -18,24 +18,18 @@ import type {
 } from "@xyflow/react";
 import type {
   LayerNodeData,
-  StageDef,
   TrainingMetrics,
   TrainingStatus,
 } from "../types";
-import type {
-  DecisionBoundarySnapshot,
-  SerializedDataset,
-} from "../types/visualizationTypes";
 import { STAGE_DATA } from "../config/stages";
 import { useGameStore } from "./gameStore";
+import { useVisualizerStore } from "./visualizerStore";
 import { buildModel } from "../ml/buildModel";
 import type { TrainResult } from "../ml/trainer";
-import { getDatasetGenerator, getAsyncDatasetLoader, isAsyncDataset } from "../ml/datasets";
 import { trainModel } from "../ml/trainer";
 import {
-  createDecisionBoundarySnapshot,
+  createVisualizationSnapshot,
   deserializeDataset,
-  serializeDataset,
 } from "../ml/visualization";
 import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
 
@@ -53,9 +47,6 @@ interface PlayStore {
   // --- 学習状態 ---
   trainingStatus: TrainingStatus;
   metrics: TrainingMetrics[];
-  visualizationStageId: string | null;
-  datasetPreview: SerializedDataset | null;
-  boundarySnapshot: DecisionBoundarySnapshot | null;
   activeTrainingRunId: number | null;
   nextTrainingRunId: number;
   lastTrainingResult: TrainResult | null;
@@ -78,8 +69,6 @@ interface PlayStore {
   setTrainingStatus: (status: TrainingStatus) => void;
   addMetrics: (m: TrainingMetrics) => void;
   resetTrainingState: () => void;
-  prepareVisualization: (stage: StageDef | null) => Promise<SerializedDataset | null>;
-  setBoundarySnapshot: (snapshot: DecisionBoundarySnapshot | null) => void;
   beginTrainingRun: () => number;
   isTrainingRunCurrent: (runId: number) => boolean;
   startTraining: () => Promise<void>;
@@ -98,9 +87,6 @@ const initialState = {
   epochs: 50,
   trainingStatus: "idle" as TrainingStatus,
   metrics: [] as TrainingMetrics[],
-  visualizationStageId: null as string | null,
-  datasetPreview: null as SerializedDataset | null,
-  boundarySnapshot: null as DecisionBoundarySnapshot | null,
   activeTrainingRunId: null as number | null,
   nextTrainingRunId: 0,
   lastTrainingResult: null as TrainResult | null,
@@ -144,57 +130,6 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       lastTrainingResult: initialState.lastTrainingResult,
       pendingStageClearId: initialState.pendingStageClearId,
     }),
-  prepareVisualization: async (stage: StageDef | null) => {
-    if (!stage) {
-      set({
-        visualizationStageId: null,
-        datasetPreview: null,
-        boundarySnapshot: null,
-        trainingStatus: initialState.trainingStatus,
-        metrics: initialState.metrics,
-        activeTrainingRunId: null,
-      });
-      return null;
-    }
-
-    const current = get();
-    if (
-      current.visualizationStageId === stage.id &&
-      current.datasetPreview != null
-    ) {
-      return current.datasetPreview;
-    }
-
-    let rawDataset;
-    try {
-      if (isAsyncDataset(stage.datasetId)) {
-        const loader = getAsyncDatasetLoader(stage.datasetId);
-        if (!loader) {
-          console.error(`No loader for async dataset: ${stage.datasetId}`);
-          return null;
-        }
-        rawDataset = await loader();
-      } else {
-        rawDataset = getDatasetGenerator(stage.datasetId)();
-      }
-
-      const datasetPreview = serializeDataset(rawDataset, stage);
-      set({
-        visualizationStageId: stage.id,
-        datasetPreview,
-        boundarySnapshot: null,
-        trainingStatus: initialState.trainingStatus,
-        metrics: initialState.metrics,
-        activeTrainingRunId: null,
-      });
-      return datasetPreview;
-    } finally {
-      rawDataset?.xs.dispose();
-      rawDataset?.ys.dispose();
-    }
-  },
-  setBoundarySnapshot: (snapshot: DecisionBoundarySnapshot | null) =>
-    set({ boundarySnapshot: snapshot }),
   beginTrainingRun: () => {
     const runId = get().nextTrainingRunId + 1;
     set({
@@ -211,7 +146,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     const stage = STAGE_DATA[currentStageIndex];
     if (!stage) return;
 
-    const datasetPreview = await get().prepareVisualization(stage);
+    const visualizerStore = useVisualizerStore.getState();
+    const datasetPreview = await visualizerStore.prepareVisualization(stage);
     if (!datasetPreview) return;
 
     const runId = get().beginTrainingRun();
@@ -237,8 +173,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
 
       dataset = deserializeDataset(datasetPreview);
       if (get().isTrainingRunCurrent(runId)) {
-        get().setBoundarySnapshot(
-          createDecisionBoundarySnapshot(activeModel, stage, { epoch: 0 }),
+        visualizerStore.setVisualizationSnapshot(
+          createVisualizationSnapshot(activeModel, dataset, stage, { epoch: 0 }),
         );
       }
 
@@ -251,8 +187,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
           }
 
           get().addMetrics(metrics);
-          get().setBoundarySnapshot(
-            createDecisionBoundarySnapshot(activeModel, stage, {
+          visualizerStore.setVisualizationSnapshot(
+            createVisualizationSnapshot(activeModel, dataset!, stage, {
               epoch: metrics.epoch + 1,
             }),
           );
@@ -263,8 +199,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         return;
       }
 
-      get().setBoundarySnapshot(
-        createDecisionBoundarySnapshot(activeModel, stage, { epoch: epochs }),
+      visualizerStore.setVisualizationSnapshot(
+        createVisualizationSnapshot(activeModel, dataset, stage, { epoch: epochs }),
       );
 
       const cleared =
@@ -303,5 +239,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   },
 
   // --- リセット ---
-  resetPlay: () => set({ ...initialState }),
+  resetPlay: () => {
+    set({ ...initialState });
+    useVisualizerStore.getState().resetVisualization();
+  },
 }));
