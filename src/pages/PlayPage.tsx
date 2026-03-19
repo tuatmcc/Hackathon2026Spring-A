@@ -24,6 +24,7 @@ export function PlayPage() {
     onConnect,
     trainingStatus,
     pendingStageClearId,
+    pendingStageClearRewardPoints,
     dismissStageClearPopup,
     lastTrainingResult,
     trainingErrorMessage,
@@ -137,6 +138,7 @@ export function PlayPage() {
             STAGE_DATA.length - 1
           }
           totalStages={STAGE_DATA.length}
+          rewardPoints={pendingStageClearRewardPoints}
           result={lastTrainingResult}
           onClose={handleCloseClearPopup}
           onOpenSkillTree={handleOpenSkillTree}
