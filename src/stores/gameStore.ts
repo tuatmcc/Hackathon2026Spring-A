@@ -13,6 +13,18 @@ import { isStageUnlocked } from "../stageProgress";
 /** 初期解放スキル (cost === 0) */
 const initialSkills = SKILL_DATA.filter((s) => s.cost === 0).map((s) => s.id);
 
+function normalizeUnlockedSkills(unlockedSkills: string[]) {
+  const mergedSkills = [...unlockedSkills];
+
+  for (const skillId of initialSkills) {
+    if (!mergedSkills.includes(skillId)) {
+      mergedSkills.push(skillId);
+    }
+  }
+
+  return mergedSkills;
+}
+
 interface GameStore {
   // --- 永続化するセーブデータ ---
   points: number;
@@ -43,7 +55,7 @@ interface GameStore {
 
 const initialProgressState = {
   points: 0,
-  unlockedSkills: initialSkills,
+  unlockedSkills: normalizeUnlockedSkills(initialSkills),
   clearedStages: [],
   currentStageIndex: 0,
 };
@@ -140,6 +152,17 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: "nn-game-save",
+      merge: (persistedState, currentState) => {
+        const state = persistedState as Partial<GameStore> | undefined;
+
+        return {
+          ...currentState,
+          ...state,
+          unlockedSkills: normalizeUnlockedSkills(
+            state?.unlockedSkills ?? currentState.unlockedSkills,
+          ),
+        };
+      },
       partialize: (state) => ({
         points: state.points,
         unlockedSkills: state.unlockedSkills,

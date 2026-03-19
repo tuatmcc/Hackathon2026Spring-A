@@ -36,6 +36,7 @@ import {
 import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
 import { deriveSeed } from "../ml/random";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
+import { getModelParameterCap } from "../ml/modelParameterBudget";
 
 interface PlayStore {
   // --- グラフ（見た目の情報）---
@@ -253,6 +254,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     const { currentStageIndex, addPoints, clearStage } = useGameStore.getState();
     const stage = STAGE_DATA[currentStageIndex];
     if (!stage) return;
+    const unlockedSkills = useGameStore.getState().unlockedSkills;
 
     const { nodes, edges, selectedOptimizer, learningRate, epochs, batchSize } = get();
     const sortedNodes =
@@ -260,8 +262,9 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         ? sortLayerNodesTopologically(nodes, edges)
         : nodes;
     const layers: LayerNodeData[] = sortedNodes.map((node) =>
-      sanitizeLayerNodeData(node.data, useGameStore.getState().unlockedSkills),
+      sanitizeLayerNodeData(node.data, unlockedSkills),
     );
+    const maxParameters = getModelParameterCap(unlockedSkills);
 
     const visualizerStore = useVisualizerStore.getState();
     const datasetPreview = await visualizerStore.prepareVisualization(stage);
@@ -292,6 +295,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         selectedOptimizer,
         learningRate,
         trainingSeed,
+        { maxParameters },
       );
       model = activeModel;
 

@@ -2,83 +2,11 @@
 // SkillTree — Steampunk-themed skill tree UI
 // ============================================================
 
-import { useRef, useState, useLayoutEffect, useCallback } from "react";
+import { useRef, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { SkillDef } from "../types";
 import { SteamParticles } from "./SteamParticles";
-
-function getDependencyOrderScore(
-  skill: SkillDef,
-  previousLevelOrder: Map<string, number>,
-  originalIndexById: Map<string, number>,
-) {
-  if (skill.dependencies.length === 0) {
-    return originalIndexById.get(skill.id) ?? 0;
-  }
-
-  const dependencyOrders = skill.dependencies.map(
-    (dependencyId) =>
-      previousLevelOrder.get(dependencyId) ?? originalIndexById.get(dependencyId) ?? 0,
-  );
-
-  return dependencyOrders.reduce((total, order) => total + order, 0) / dependencyOrders.length;
-}
-
-export function groupByLevel(skills: SkillDef[]): SkillDef[][] {
-  const levels = new Map<string, number>();
-  const originalIndexById = new Map(skills.map((skill, index) => [skill.id, index]));
-  const skillById = new Map(skills.map((skill) => [skill.id, skill]));
-
-  function getLevel(skill: SkillDef): number {
-    if (levels.has(skill.id)) return levels.get(skill.id)!;
-    if (skill.dependencies.length === 0) {
-      levels.set(skill.id, 0);
-      return 0;
-    }
-    const maxDepLevel = Math.max(
-      ...skill.dependencies.map((d) => {
-        const dep = skillById.get(d);
-        return dep ? getLevel(dep) : 0;
-      }),
-    );
-    levels.set(skill.id, maxDepLevel + 1);
-    return maxDepLevel + 1;
-  }
-
-  skills.forEach((s) => getLevel(s));
-
-  const maxLevel = Math.max(...levels.values(), 0);
-  const grouped = Array.from({ length: maxLevel + 1 }, (_, i) =>
-    skills.filter((skill) => levels.get(skill.id) === i),
-  );
-
-  let previousLevelOrder = new Map<string, number>();
-  grouped.forEach((levelSkills) => {
-    // Keep later tiers aligned with the horizontal order of their dependencies to reduce crossing edges.
-    levelSkills.sort((leftSkill, rightSkill) => {
-      const leftScore = getDependencyOrderScore(
-        leftSkill,
-        previousLevelOrder,
-        originalIndexById,
-      );
-      const rightScore = getDependencyOrderScore(
-        rightSkill,
-        previousLevelOrder,
-        originalIndexById,
-      );
-
-      if (leftScore !== rightScore) {
-        return leftScore - rightScore;
-      }
-
-      return (originalIndexById.get(leftSkill.id) ?? 0) - (originalIndexById.get(rightSkill.id) ?? 0);
-    });
-
-    previousLevelOrder = new Map(levelSkills.map((skill, index) => [skill.id, index]));
-  });
-
-  return grouped;
-}
+import { groupByLevel } from "./skillTreeLayout";
 
 interface Props {
   title: string;
@@ -99,17 +27,25 @@ export function SkillTree({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const skillRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
   const [positions, setPositions] = useState<Map<string, DOMRect>>(new Map());
   const [justUnlocked, setJustUnlocked] = useState<string | null>(null);
 
   useLayoutEffect(() => {
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    const newPositions = new Map<string, DOMRect>();
-    skillRefs.current.forEach((el, id) => {
-      newPositions.set(id, el.getBoundingClientRect());
+    const frameId = window.requestAnimationFrame(() => {
+      const nextContainerRect = containerRef.current?.getBoundingClientRect();
+      if (!nextContainerRect) return;
+      const newPositions = new Map<string, DOMRect>();
+      skillRefs.current.forEach((el, id) => {
+        newPositions.set(id, el.getBoundingClientRect());
+      });
+      setContainerRect(nextContainerRect);
+      setPositions(newPositions);
     });
-    setPositions(newPositions);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [skills, points, unlockedSkills, justUnlocked]);
 
   const setSkillRef = useCallback((skillId: string) => (el: HTMLDivElement | null) => {
@@ -134,19 +70,16 @@ export function SkillTree({
   };
 
   const levels = groupByLevel(skills);
-
-  const containerRect = containerRef.current?.getBoundingClientRect();
-
-  const getLines = () => {
+  const lines = useMemo(() => {
     if (!containerRect) return [];
-    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    const nextLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
     skills.forEach((skill) => {
       const toRect = positions.get(skill.id);
       if (!toRect) return;
       skill.dependencies.forEach((depId) => {
         const fromRect = positions.get(depId);
         if (!fromRect) return;
-        lines.push({
+        nextLines.push({
           x1: fromRect.left + fromRect.width / 2 - containerRect.left,
           y1: fromRect.bottom - containerRect.top,
           x2: toRect.left + toRect.width / 2 - containerRect.left,
@@ -154,8 +87,8 @@ export function SkillTree({
         });
       });
     });
-    return lines;
-  };
+    return nextLines;
+  }, [containerRect, positions, skills]);
 
   return (
     <div ref={containerRef} style={treeContainerStyle}>
@@ -183,7 +116,7 @@ export function SkillTree({
             <polygon points="0 0, 10 3.5, 0 7" fill="#8b4513" />
           </marker>
         </defs>
-        {getLines().map((line, i) => (
+        {lines.map((line, i) => (
           <line
             key={i}
             x1={line.x1}

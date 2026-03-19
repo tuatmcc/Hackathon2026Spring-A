@@ -6,7 +6,7 @@ describe("gameStore.resetProgress", () => {
     localStorage.clear();
     useGameStore.setState({
       points: 0,
-      unlockedSkills: ["dense", "sigmoid", "sgd"],
+      unlockedSkills: ["dense", "model_params_cap_32", "sigmoid", "sgd"],
       clearedStages: [],
       currentStageIndex: 0,
       currentPage: "play",
@@ -28,7 +28,7 @@ describe("gameStore.resetProgress", () => {
 
     const state = useGameStore.getState();
     expect(state.points).toBe(0);
-    expect(state.unlockedSkills).toEqual(["dense", "sigmoid", "sgd"]);
+    expect(state.unlockedSkills).toEqual(["dense", "model_params_cap_32", "sigmoid", "sgd"]);
     expect(state.clearedStages).toEqual([]);
     expect(state.currentStageIndex).toBe(0);
     expect(state.currentPage).toBe("play");

@@ -2,17 +2,24 @@
 // TrainingPanel — Steampunk-themed training controls + metrics
 // ============================================================
 
-import type { CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { STAGE_DATA } from "../config/stages";
 import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
+import {
+  estimateModelParameterCount,
+  formatParameterCount,
+  getModelParameterCap,
+} from "../ml/modelParameterBudget";
 import {
   formatStageTargetValue,
   getStageTargetLabel,
 } from "../stageUtils";
 import type { TrainingMetrics, TrainingStatus } from "../types";
 import { SteamParticles } from "./SteamParticles";
+import { sortLayerNodesTopologically } from "./networkEditorUtils";
+import { sanitizeLayerNodeData } from "../layerSizeOptions";
 
 const CHART_WIDTH = 100;
 const CHART_HEIGHT = 56;
@@ -25,6 +32,8 @@ export function TrainingPanel() {
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
   const stage = STAGE_DATA[currentStageIndex];
   const {
+    nodes,
+    edges,
     selectedOptimizer,
     setSelectedOptimizer,
     learningRate,
@@ -71,6 +80,36 @@ export function TrainingPanel() {
     validationMetricSelector,
     chartMaxValue,
   );
+  const parameterBudget = useMemo(() => {
+    if (!stage) {
+      return null;
+    }
+
+    const sortedNodes =
+      edges.length > 0 && nodes.length > 1
+        ? sortLayerNodesTopologically(nodes, edges)
+        : nodes;
+    const layers = sortedNodes.map((node) =>
+      sanitizeLayerNodeData(node.data, unlockedSkills),
+    );
+    const cap = getModelParameterCap(unlockedSkills);
+
+    try {
+      const estimate = estimateModelParameterCount(layers, stage);
+
+      return {
+        parameterCount: estimate.parameterCount,
+        cap,
+        isExceeded: estimate.parameterCount > cap,
+      };
+    } catch {
+      return {
+        parameterCount: null,
+        cap,
+        isExceeded: false,
+      };
+    }
+  }, [edges, nodes, stage, unlockedSkills]);
 
   return (
     <section style={panelStyle}>
@@ -154,6 +193,17 @@ export function TrainingPanel() {
           <div style={progressStripeStyle} />
         )}
       </button>
+
+      {parameterBudget && (
+        <div style={parameterBudgetStyle(parameterBudget.isExceeded)}>
+          <span style={parameterBudgetLabelStyle}>Params</span>
+          <strong>
+            {parameterBudget.parameterCount == null
+              ? `? / ${formatParameterCount(parameterBudget.cap)}`
+              : `${formatParameterCount(parameterBudget.parameterCount)} / ${formatParameterCount(parameterBudget.cap)}`}
+          </strong>
+        </div>
+      )}
 
       <div style={metricsRowStyle}>
         <MetricCard
@@ -475,6 +525,30 @@ const progressStripeStyle: CSSProperties = {
   backgroundSize: "40px 3px",
   animation: "progress-stripe 0.6s linear infinite",
 };
+
+const parameterBudgetLabelStyle: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "var(--text-muted)",
+};
+
+function parameterBudgetStyle(isExceeded: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 10,
+    padding: "8px 10px",
+    border: `1px solid ${isExceeded ? "rgba(221, 68, 68, 0.28)" : "rgba(181, 137, 33, 0.18)"}`,
+    background: isExceeded ? "rgba(221, 68, 68, 0.06)" : "rgba(181, 137, 33, 0.06)",
+    color: isExceeded ? "#d44" : "var(--brass)",
+    fontSize: 11,
+    fontWeight: 700,
+  };
+}
 
 const metricsRowStyle: CSSProperties = {
   display: "grid",

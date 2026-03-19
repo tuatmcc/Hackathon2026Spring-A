@@ -30,10 +30,13 @@ src/ml/
 | `stage` | `StageDef` | ステージ定義（最終層、loss関数などを固定） |
 | `optimizer` | `string` | オプティマイザ名（`"sgd"` | `"adam"`） |
 | `learningRate` | `number` | 学習率 |
+| `constraints` | `{ maxParameters?: number }` | 任意。モデル全体の総パラメータ数の上限 |
 
 ### 出力
 
 `tf.LayersModel` - コンパイル済みのモデル
+
+`constraints.maxParameters` が指定されている場合、`model.countParams()` がその上限を超えた構成はエラーになる。
 
 ### 対応レイヤー
 

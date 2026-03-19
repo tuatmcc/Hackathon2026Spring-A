@@ -12,26 +12,21 @@ import type {
   SerializedDataset,
   VisualizationDomain,
 } from "../types/visualizationTypes";
+import {
+  extractDigitsSample,
+  extractRegressionSamplePoints,
+  getClampedDigitsSampleIndex,
+  getRegressionDomainFromSamplePoints,
+} from "./dataVisualizationUtils";
+import type {
+  DigitsSampleItem,
+  RegressionSamplePoint,
+} from "./dataVisualizationUtils";
 
 interface ScatterPoint {
   x: number;
   y: number;
   label: number;
-}
-
-export interface RegressionSamplePoint {
-  x: number;
-  y: number;
-}
-
-export interface DigitsSampleItem {
-  index: number;
-  pixels: number[];
-  label: number;
-  predictedLabel: number | null;
-  confidence: number | null;
-  classConfidences: number[];
-  isCorrect: boolean | null;
 }
 
 const POSITIVE_COLOR = [181, 137, 33] as const;
@@ -51,13 +46,6 @@ const DEFAULT_DOMAIN: VisualizationDomain = {
   minY: -1.2,
   maxY: 1.2,
 };
-const DEFAULT_REGRESSION_DOMAIN: VisualizationDomain = {
-  minX: -1.1,
-  maxX: 1.1,
-  minY: -1.2,
-  maxY: 1.2,
-};
-
 export function DataVisualization() {
   const currentStageIndex = useGameStore((s) => s.currentStageIndex);
   const stage = STAGE_DATA[currentStageIndex] ?? null;
@@ -67,7 +55,10 @@ export function DataVisualization() {
   const visualizationSnapshot = useVisualizerStore((s) => s.visualizationSnapshot);
   const visualizationStageId = useVisualizerStore((s) => s.visualizationStageId);
   const prepareVisualization = useVisualizerStore((s) => s.prepareVisualization);
-  const [digitsSampleIndex, setDigitsSampleIndex] = useState(0);
+  const [digitsSampleState, setDigitsSampleState] = useState({
+    datasetKey: "",
+    sampleIndex: 0,
+  });
   const activeDataset =
     stage && visualizationStageId === stage.id ? dataset : null;
   const activeSnapshot =
@@ -92,10 +83,6 @@ export function DataVisualization() {
     }
   }, [dataset, prepareVisualization, stage, visualizationStageId]);
 
-  useEffect(() => {
-    setDigitsSampleIndex(0);
-  }, [activeDataset?.sampleCount, stage?.id]);
-
   const points = useMemo(() => {
     if (!stage || !activeDataset || !isTwoDimensionalStage(stage)) {
       return [];
@@ -105,16 +92,15 @@ export function DataVisualization() {
   }, [activeDataset, stage]);
 
   const digitsSampleCount = activeDataset?.sampleCount ?? 0;
+  const digitsDatasetKey = `${stage?.id ?? "none"}:${digitsSampleCount}`;
+  const requestedDigitsSampleIndex =
+    digitsSampleState.datasetKey === digitsDatasetKey
+      ? digitsSampleState.sampleIndex
+      : 0;
   const clampedDigitsSampleIndex = getClampedDigitsSampleIndex(
-    digitsSampleIndex,
+    requestedDigitsSampleIndex,
     digitsSampleCount,
   );
-
-  useEffect(() => {
-    if (digitsSampleIndex !== clampedDigitsSampleIndex) {
-      setDigitsSampleIndex(clampedDigitsSampleIndex);
-    }
-  }, [clampedDigitsSampleIndex, digitsSampleIndex]);
 
   const digitsSample = useMemo(() => {
     if (!stage || !activeDataset || !isDigitsStage(stage)) {
@@ -140,6 +126,21 @@ export function DataVisualization() {
     activeRegressionSnapshot?.domain ??
     getRegressionDomainFromSamplePoints(regressionSamples);
 
+  const updateDigitsSampleIndex = (updater: (current: number) => number) => {
+    setDigitsSampleState((current) => {
+      const baseIndex =
+        current.datasetKey === digitsDatasetKey ? current.sampleIndex : 0;
+
+      return {
+        datasetKey: digitsDatasetKey,
+        sampleIndex: getClampedDigitsSampleIndex(
+          updater(baseIndex),
+          digitsSampleCount,
+        ),
+      };
+    });
+  };
+
   if (!stage) {
     return <div style={placeholderStyle}>No stage selected</div>;
   }
@@ -164,8 +165,8 @@ export function DataVisualization() {
       digitsSample,
       clampedDigitsSampleIndex,
       digitsSampleCount,
-      () => setDigitsSampleIndex((current) => current - 1),
-      () => setDigitsSampleIndex((current) => current + 1),
+      () => updateDigitsSampleIndex((current) => current - 1),
+      () => updateDigitsSampleIndex((current) => current + 1),
     );
   }
 
@@ -579,81 +580,6 @@ function extractScatterPoints(dataset: SerializedDataset): ScatterPoint[] {
   return points;
 }
 
-export function getClampedDigitsSampleIndex(
-  sampleIndex: number,
-  sampleCount: number,
-) {
-  if (sampleCount <= 0) {
-    return 0;
-  }
-
-  return Math.max(0, Math.min(sampleIndex, sampleCount - 1));
-}
-
-export function extractDigitsSample(
-  dataset: SerializedDataset,
-  snapshot: DigitsPredictionSnapshot | null,
-  sampleIndex: number,
-): DigitsSampleItem | null {
-  if (dataset.sampleCount <= 0) {
-    return null;
-  }
-
-  const clampedSampleIndex = getClampedDigitsSampleIndex(
-    sampleIndex,
-    dataset.sampleCount,
-  );
-  const sampleSize = dataset.inputShape.reduce(
-    (product, dimension) => product * dimension,
-    1,
-  );
-  const sampleOffset = clampedSampleIndex * sampleSize;
-  const prediction = snapshot?.predictions[clampedSampleIndex];
-
-  return {
-    index: clampedSampleIndex,
-    pixels: dataset.xs.slice(sampleOffset, sampleOffset + sampleSize),
-    label: dataset.labels[clampedSampleIndex] ?? 0,
-    predictedLabel: prediction?.predictedLabel ?? null,
-    confidence: prediction?.confidence ?? null,
-    classConfidences: prediction?.classConfidences ?? [],
-    isCorrect: prediction?.isCorrect ?? null,
-  };
-}
-
-export function extractRegressionSamplePoints(
-  dataset: SerializedDataset,
-): RegressionSamplePoint[] {
-  const points: RegressionSamplePoint[] = [];
-
-  for (let index = 0; index < dataset.sampleCount; index++) {
-    points.push({
-      x: dataset.xs[index] ?? 0,
-      y: dataset.ys[index] ?? 0,
-    });
-  }
-
-  return points.sort((left, right) => left.x - right.x);
-}
-
-export function getRegressionDomainFromSamplePoints(
-  points: RegressionSamplePoint[],
-): VisualizationDomain {
-  if (points.length === 0) {
-    return DEFAULT_REGRESSION_DOMAIN;
-  }
-
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-
-  return {
-    minX: expandDomainEdge(Math.min(...xs), Math.max(...xs), 0.08, 0.2, "min"),
-    maxX: expandDomainEdge(Math.min(...xs), Math.max(...xs), 0.08, 0.2, "max"),
-    minY: expandDomainEdge(Math.min(...ys), Math.max(...ys), 0.12, 0.4, "min"),
-    maxY: expandDomainEdge(Math.min(...ys), Math.max(...ys), 0.12, 0.4, "max"),
-  };
-}
-
 function buildCurvePath(
   points: RegressionSamplePoint[] | RegressionCurvePoint[],
   domain: VisualizationDomain,
@@ -749,26 +675,6 @@ function rgb(color: readonly [number, number, number]) {
 
 function formatScalar(value: number | undefined) {
   return value != null ? value.toFixed(4) : "--";
-}
-
-function expandDomainEdge(
-  minValue: number,
-  maxValue: number,
-  paddingRatio: number,
-  fallbackSpan: number,
-  edge: "min" | "max",
-) {
-  const safeMin = Number.isFinite(minValue) ? minValue : 0;
-  const safeMax = Number.isFinite(maxValue) ? maxValue : 0;
-  const span = Math.max(safeMax - safeMin, fallbackSpan);
-  const center = (safeMin + safeMax) / 2;
-  const normalizedMin = safeMax > safeMin ? safeMin : center - span / 2;
-  const normalizedMax = safeMax > safeMin ? safeMax : center + span / 2;
-  const padding = span * paddingRatio;
-
-  return edge === "min"
-    ? normalizedMin - padding
-    : normalizedMax + padding;
 }
 
 const panelStyle: CSSProperties = {
