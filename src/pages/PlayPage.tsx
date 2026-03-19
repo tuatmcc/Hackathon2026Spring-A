@@ -22,6 +22,7 @@ export function PlayPage() {
     onNodesChange,
     onEdgesChange,
     onConnect,
+    onReconnect,
     trainingStatus,
     pendingStageClearId,
     pendingStageClearRewardPoints,
@@ -115,6 +116,7 @@ export function PlayPage() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onReconnect={onReconnect}
           stage={stage}
         />
       </div>

@@ -456,6 +456,49 @@ code {
   font-size: 11px;
 }
 
+.layer-config__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(221, 68, 68, 0.24);
+  background: rgba(221, 68, 68, 0.08);
+}
+
+.layer-config__delete-button {
+  padding: 8px 12px;
+  border: 1px solid rgba(221, 68, 68, 0.5);
+  background: #2b0909;
+  color: #ffb5b5;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.layer-config__delete-button:hover {
+  border-color: rgba(255, 132, 132, 0.8);
+  background: #3a0f0f;
+  transform: translateY(-1px);
+}
+
+.layer-config__delete-button:active {
+  transform: translateY(0);
+}
+
+.layer-config__action-hint {
+  color: #f0c9c9;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+}
+
 .layer-config__section {
   display: grid;
   grid-template-columns: 108px minmax(0, 1fr);
@@ -597,6 +640,15 @@ code {
 
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
+  .layer-config__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .layer-config__action-hint {
+    text-align: left;
+  }
+
   .layer-config__section {
     grid-template-columns: 1fr;
   }

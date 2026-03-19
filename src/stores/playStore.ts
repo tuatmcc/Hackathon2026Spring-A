@@ -8,6 +8,7 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
+  reconnectEdge,
 } from "@xyflow/react";
 import type {
   Node,
@@ -66,8 +67,10 @@ interface PlayStore {
   onEdgesChange: (changes: EdgeChange[]) => void;
   initializeFixedNodes: () => void;
   onConnect: (connection: Connection) => void;
+  onReconnect: (oldEdge: Edge, connection: Connection) => void;
   addNode: (node: Node<LayerNodeData>) => void;
   updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) => void;
+  removeNode: (nodeId: string) => void;
 
   // --- 学習条件操作 ---
   setSelectedOptimizer: (id: string) => void;
@@ -160,6 +163,12 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     set({ edges: applyEdgeChanges(changes, get().edges) }),
   onConnect: (connection: Connection) =>
     set({ edges: addEdge(connection, get().edges) }),
+  onReconnect: (oldEdge: Edge, connection: Connection) =>
+    set({
+      edges: reconnectEdge(oldEdge, connection, get().edges, {
+        shouldReplaceId: false,
+      }),
+    }),
   addNode: (node: Node<LayerNodeData>) => {
     const unlockedSkills = useGameStore.getState().unlockedSkills;
     set((s) => ({
@@ -185,6 +194,13 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       ),
     }));
   },
+  removeNode: (nodeId: string) =>
+    set((state) => ({
+      nodes: state.nodes.filter((node) => node.id !== nodeId),
+      edges: state.edges.filter(
+        (edge) => edge.source !== nodeId && edge.target !== nodeId,
+      ),
+    })),
 
   // --- 学習条件操作 ---
   setSelectedOptimizer: (id: string) => set({ selectedOptimizer: id }),

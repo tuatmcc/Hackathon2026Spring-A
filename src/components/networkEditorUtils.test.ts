@@ -180,4 +180,31 @@ describe("isValidLayerConnection", () => {
       ),
     ).toBe(true);
   });
+
+  it("再接続時は差し替え対象の既存エッジを無視して検証できる", () => {
+    const nodes = [
+      ...createFixedNodes(vectorStage),
+      createLayerNode("dense-1", "dense", 180),
+      createLayerNode("dense-2", "dense", 360),
+    ];
+    const edges: Edge[] = [
+      { id: "edge-input", source: "__input__", target: "dense-1" },
+      { id: "edge-output", source: "dense-1", target: "__output__" },
+    ];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "dense-1",
+          target: "dense-2",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        edges,
+        vectorStage,
+        { ignoreEdgeIds: ["edge-output"] },
+      ),
+    ).toBe(true);
+  });
 });
