@@ -17,6 +17,7 @@ export function SkillDetailPopup({ skill, onClose }: Props) {
         transform: "translateY(-50%)",
         width: 280,
         background: "#fff",
+        color: "#16171d",
         border: "1px solid #ccc",
         borderRadius: 8,
         padding: 48,
@@ -32,6 +33,7 @@ export function SkillDetailPopup({ skill, onClose }: Props) {
           right: 8,
           border: "none",
           background: "transparent",
+          color: "#16171d",
           cursor: "pointer",
           fontSize: 20,
         }}

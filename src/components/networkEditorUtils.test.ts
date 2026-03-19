@@ -1,0 +1,183 @@
+import { describe, expect, it } from "vitest";
+import type { Edge, Node } from "@xyflow/react";
+import { isValidLayerConnection } from "./networkEditorUtils";
+import type { LayerNodeData, StageDef } from "../types";
+
+const imageStage: StageDef = {
+  id: "stage_digits",
+  name: "Digits",
+  description: "Image classification",
+  datasetId: "digits",
+  inputShape: [8, 8, 1],
+  taskType: "multiclass",
+  outputUnits: 10,
+  outputActivation: "softmax",
+  lossFunction: "categoricalCrossentropy",
+  targetAccuracy: 0.85,
+  rewardPoints: 200,
+};
+
+const vectorStage: StageDef = {
+  id: "stage_xor",
+  name: "XOR",
+  description: "Binary classification",
+  datasetId: "xor",
+  inputShape: [2],
+  taskType: "binary",
+  outputUnits: 1,
+  outputActivation: "sigmoid",
+  lossFunction: "binaryCrossentropy",
+  targetAccuracy: 0.9,
+  rewardPoints: 100,
+};
+
+function createLayerNode(
+  id: string,
+  layerType: LayerNodeData["layerType"],
+  x: number,
+  overrides: Partial<LayerNodeData> = {},
+): Node<LayerNodeData> {
+  return {
+    id,
+    type: "layerNode",
+    position: { x, y: 120 },
+    data: {
+      layerType,
+      units: 16,
+      activation: "relu",
+      regularization: null,
+      regularizationRate: 0,
+      ...overrides,
+    },
+  };
+}
+
+function createFixedNodes(stage: StageDef): Node[] {
+  return [
+    {
+      id: "__input__",
+      type: "fixedNode",
+      position: { x: 0, y: 120 },
+      data: { nodeType: "input", shape: stage.inputShape },
+    },
+    {
+      id: "__output__",
+      type: "fixedNode",
+      position: { x: 600, y: 120 },
+      data: {
+        nodeType: "output",
+        shape: [stage.outputUnits],
+        activation: stage.outputActivation,
+        units: stage.outputUnits,
+      },
+    },
+  ];
+}
+
+describe("isValidLayerConnection", () => {
+  it("画像入力を dense に直接つなぐ接続を拒否する", () => {
+    const nodes = [...createFixedNodes(imageStage), createLayerNode("dense-1", "dense", 180)];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "__input__",
+          target: "dense-1",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        [],
+        imageStage,
+      ),
+    ).toBe(false);
+  });
+
+  it("画像入力を conv2d に接続できる", () => {
+    const nodes = [
+      ...createFixedNodes(imageStage),
+      createLayerNode("conv-1", "conv2d", 180, { filters: 8, kernelSize: 3 }),
+    ];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "__input__",
+          target: "conv-1",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        [],
+        imageStage,
+      ),
+    ).toBe(true);
+  });
+
+  it("flatten 前の conv2d 出力を output に直接つなぐ接続を拒否する", () => {
+    const nodes = [
+      ...createFixedNodes(imageStage),
+      createLayerNode("conv-1", "conv2d", 180, { filters: 8, kernelSize: 3 }),
+    ];
+    const edges: Edge[] = [{ id: "e1", source: "__input__", target: "conv-1" }];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "conv-1",
+          target: "__output__",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        edges,
+        imageStage,
+      ),
+    ).toBe(false);
+  });
+
+  it("conv2d の後は flatten を接続できる", () => {
+    const nodes = [
+      ...createFixedNodes(imageStage),
+      createLayerNode("conv-1", "conv2d", 180, { filters: 8, kernelSize: 3 }),
+      createLayerNode("flatten-1", "flatten", 360, { units: 0, activation: null }),
+    ];
+    const edges: Edge[] = [{ id: "e1", source: "__input__", target: "conv-1" }];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "conv-1",
+          target: "flatten-1",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        edges,
+        imageStage,
+      ),
+    ).toBe(true);
+  });
+
+  it("ベクトル入力では dense を経由して output に接続できる", () => {
+    const nodes = [
+      ...createFixedNodes(vectorStage),
+      createLayerNode("dense-1", "dense", 180),
+    ];
+    const edges: Edge[] = [{ id: "e1", source: "__input__", target: "dense-1" }];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "dense-1",
+          target: "__output__",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        edges,
+        vectorStage,
+      ),
+    ).toBe(true);
+  });
+});
