@@ -33,7 +33,10 @@ import {
   createVisualizationSnapshot,
   deserializeDataset,
 } from "../ml/visualization";
-import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
+import {
+  sortLayerNodesTopologically,
+  validateSequentialLayerGraph,
+} from "../components/networkEditorUtils";
 import { deriveSeed } from "../ml/random";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
 
@@ -255,10 +258,27 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     if (!stage) return;
 
     const { nodes, edges, selectedOptimizer, learningRate, epochs, batchSize } = get();
-    const sortedNodes =
-      edges.length > 0 && nodes.length > 1
-        ? sortLayerNodesTopologically(nodes, edges)
-        : nodes;
+    let sortedNodes = nodes;
+
+    try {
+      validateSequentialLayerGraph(nodes, edges);
+      sortedNodes =
+        edges.length > 0 && nodes.length > 1
+          ? sortLayerNodesTopologically(nodes, edges)
+          : nodes;
+    } catch (error) {
+      set({
+        trainingStatus: "failed",
+        metrics: [],
+        activeTrainingRunId: null,
+        lastTrainingResult: null,
+        pendingStageClearId: null,
+        trainingErrorMessage:
+          error instanceof Error ? error.message : "Training failed.",
+      });
+      return;
+    }
+
     const layers: LayerNodeData[] = sortedNodes.map((node) =>
       sanitizeLayerNodeData(node.data, useGameStore.getState().unlockedSkills),
     );
