@@ -75,6 +75,11 @@ body {
 
 .network-editor__canvas {
   flex: 1;
+  position: relative;
+}
+
+.network-editor button[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .network-layer-node {

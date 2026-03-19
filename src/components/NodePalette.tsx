@@ -10,26 +10,7 @@
 import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
-import type { LayerNodeData } from "../types";
-import type { Node } from "@xyflow/react";
-
-let nodeIdCounter = 0;
-
-function createLayerNode(layerType: string): Node<LayerNodeData> {
-  nodeIdCounter++;
-  return {
-    id: `layer-${nodeIdCounter}`,
-    type: "layerNode",
-    position: { x: 100, y: 80 * nodeIdCounter },
-    data: {
-      layerType,
-      units: 32,
-      activation: null,
-      regularization: null,
-      regularizationRate: 0.2,
-    },
-  };
-}
+import { createLayerNode } from "./layerNodeFactory";
 
 export function NodePalette() {
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
@@ -42,18 +23,40 @@ export function NodePalette() {
   return (
     <div style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
       <strong>Layers</strong>
-      <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginTop: 8,
+          flexWrap: "wrap",
+        }}
+      >
         {availableLayers.map((skill) => (
           <button
             key={skill.id}
             onClick={() => addNode(createLayerNode(skill.id))}
-            style={{ fontSize: 12, padding: "4px 8px" }}
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData("application/reactflow", skill.id);
+              event.dataTransfer.effectAllowed = "move";
+            }}
+            style={{
+              minWidth: 152,
+              padding: "12px 16px",
+              border: "1px solid #b8b8b8",
+              borderRadius: 14,
+              background: "linear-gradient(180deg, #ffffff 0%, #f2f2f2 100%)",
+              boxShadow:
+                "rgba(0, 0, 0, 0.08) 0 10px 18px -8px, rgba(0, 0, 0, 0.12) 0 4px 10px -6px",
+              fontSize: 12,
+              textAlign: "left",
+              cursor: "grab",
+            }}
           >
             + {skill.name}
           </button>
         ))}
       </div>
-      {/* TODO: D&D 実装。現在はクリックでノード追加 */}
     </div>
   );
 }
