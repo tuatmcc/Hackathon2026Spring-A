@@ -8,12 +8,14 @@
 // 4. 結果を判定して gameStore を更新
 // ============================================================
 
+import { useMemo } from "react";
 import { usePlayStore } from "../stores/playStore";
 import { useGameStore } from "../stores/gameStore";
 import { NetworkEditor } from "../components/NetworkEditor";
 import { TrainingPanel } from "../components/TrainingPanel";
 import { DataVisualization } from "../components/DataVisualization";
 import { STAGE_DATA } from "../config/stages";
+import { StageClearPopup, StageIntroPopup } from "../components/GameOverlays";
 
 export function PlayPage() {
   const {
@@ -23,13 +25,50 @@ export function PlayPage() {
     onEdgesChange,
     onConnect,
     trainingStatus,
+    pendingStageClearId,
+    dismissStageClearPopup,
+    lastTrainingResult,
   } = usePlayStore();
 
-  const { currentStageIndex } = useGameStore();
+  const {
+    currentStageIndex,
+    seenStageIntroIds,
+    markStageIntroSeen,
+    setPage,
+  } = useGameStore();
   const stage = STAGE_DATA[currentStageIndex];
+  const clearedStage = useMemo(
+    () => STAGE_DATA.find((item) => item.id === pendingStageClearId) ?? null,
+    [pendingStageClearId],
+  );
+  const activeIntroStage = useMemo(
+    () =>
+      stage && !pendingStageClearId && !seenStageIntroIds.includes(stage.id)
+        ? stage
+        : null,
+    [pendingStageClearId, seenStageIntroIds, stage],
+  );
+  const failureMessage =
+    stage?.taskType === "regression"
+      ? "Loss did not meet the target. Try adjusting your network and learning rate."
+      : "Accuracy did not meet the target. Try adjusting your network.";
+
+  const handleCloseIntro = () => {
+    if (!activeIntroStage) return;
+    markStageIntroSeen(activeIntroStage.id);
+  };
+
+  const handleCloseClearPopup = () => {
+    dismissStageClearPopup();
+  };
+
+  const handleOpenSkillTree = () => {
+    dismissStageClearPopup();
+    setPage("skillTree");
+  };
 
   return (
-    <div style={{ display: "flex", height: "100%" }}>
+    <div style={{ display: "flex", height: "100%", position: "relative" }}>
       {/* 左ペイン: ネットワークエディタ */}
       <div style={{ flex: 2, borderRight: "1px solid #ccc" }}>
         <NetworkEditor
@@ -65,17 +104,35 @@ export function PlayPage() {
 
         <TrainingPanel />
 
-        {trainingStatus === "completed" && (
-          <div style={{ padding: 16, color: "#4caf50", fontWeight: "bold" }}>
-            Stage Cleared! +{stage?.rewardPoints}pt
-          </div>
-        )}
         {trainingStatus === "failed" && (
           <div style={{ padding: 16, color: "#f44336" }}>
-            Accuracy did not meet the target. Try adjusting your network.
+            {failureMessage}
           </div>
         )}
       </div>
+
+      {activeIntroStage && (
+        <StageIntroPopup
+          stage={activeIntroStage}
+          stageNumber={STAGE_DATA.findIndex((item) => item.id === activeIntroStage.id) + 1}
+          totalStages={STAGE_DATA.length}
+          onClose={handleCloseIntro}
+        />
+      )}
+
+      {clearedStage && (
+        <StageClearPopup
+          stage={clearedStage}
+          hasNextStage={
+            STAGE_DATA.findIndex((item) => item.id === clearedStage.id) <
+            STAGE_DATA.length - 1
+          }
+          totalStages={STAGE_DATA.length}
+          result={lastTrainingResult}
+          onClose={handleCloseClearPopup}
+          onOpenSkillTree={handleOpenSkillTree}
+        />
+      )}
     </div>
   );
 }
