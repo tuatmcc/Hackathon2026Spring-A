@@ -152,21 +152,20 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
   return (
     <div className="layer-config-panel">
       <div className="layer-config__header">
-        <strong>{data.layerType} layer</strong>
-        <div className="layer-config__summary">{summaryParts.join(" / ")}</div>
-      </div>
-
-      <div className="layer-config__actions">
+        <div className="layer-config__header-main">
+          <strong>{data.layerType} layer</strong>
+          <div className="layer-config__summary">{summaryParts.join(" / ")}</div>
+          <div className="layer-config__danger-note">
+            Deleting this layer also removes connected edges.
+          </div>
+        </div>
         <button
           type="button"
           className="layer-config__delete-button"
           onClick={() => onDeleteNode(node.id)}
         >
-          Delete layer
+          Delete
         </button>
-        <div className="layer-config__action-hint">
-          Removes this node and any connected edges.
-        </div>
       </div>
 
       <section className="layer-config__section">

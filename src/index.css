@@ -439,9 +439,18 @@ code {
 }
 
 .layer-config__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--accent-border);
   background: rgba(181, 137, 33, 0.06);
+}
+
+.layer-config__header-main {
+  min-width: 0;
+  flex: 1;
 }
 
 .layer-config__header strong {
@@ -456,26 +465,25 @@ code {
   font-size: 11px;
 }
 
-.layer-config__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(221, 68, 68, 0.24);
-  background: rgba(221, 68, 68, 0.08);
+.layer-config__danger-note {
+  margin-top: 8px;
+  color: #d59a9a;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .layer-config__delete-button {
-  padding: 8px 12px;
+  flex-shrink: 0;
+  padding: 7px 10px;
   border: 1px solid rgba(221, 68, 68, 0.5);
   background: #2b0909;
   color: #ffb5b5;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
   transition:
     transform 0.15s ease,
     border-color 0.15s ease,
@@ -490,13 +498,6 @@ code {
 
 .layer-config__delete-button:active {
   transform: translateY(0);
-}
-
-.layer-config__action-hint {
-  color: #f0c9c9;
-  font-size: 10px;
-  line-height: 1.4;
-  text-align: right;
 }
 
 .layer-config__section {
@@ -640,13 +641,8 @@ code {
 
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
-  .layer-config__actions {
+  .layer-config__header {
     flex-direction: column;
-    align-items: stretch;
-  }
-
-  .layer-config__action-hint {
-    text-align: left;
   }
 
   .layer-config__section {
