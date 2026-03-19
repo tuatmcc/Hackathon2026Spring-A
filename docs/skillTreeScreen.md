@@ -47,6 +47,13 @@
 | スキルID | 名前 | コスト | 前提 |
 |---|---|---|---|
 | `dense` | 全結合層 (Dense) | 0 (初期解放) | なし |
+| `model_params_cap_32` | 総パラメータ上限 32 | 0 (初期解放) | dense |
+| `model_params_cap_64` | 総パラメータ上限 64 | 15 | model_params_cap_32 |
+| `model_params_cap_128` | 総パラメータ上限 128 | 25 | model_params_cap_64 |
+| `model_params_cap_256` | 総パラメータ上限 256 | 40 | model_params_cap_128 |
+| `model_params_cap_512` | 総パラメータ上限 512 | 70 | model_params_cap_256 |
+| `model_params_cap_1024` | 総パラメータ上限 1024 | 110 | model_params_cap_512 |
+| `model_params_cap_4096` | 総パラメータ上限 4096 | 180 | model_params_cap_1024 |
 | `conv2d` | 畳み込み層 (Conv2D) | 300 | dense |
 | `flatten` | Flatten | 100 | conv2d |
 

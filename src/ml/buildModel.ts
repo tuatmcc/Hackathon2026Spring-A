@@ -12,6 +12,11 @@
 import * as tf from "@tensorflow/tfjs";
 import type { LayerNodeData, StageDef } from "../types";
 import { deriveSeed } from "./random";
+import { formatParameterCount } from "./modelParameterBudget";
+
+export interface BuildModelConstraints {
+  maxParameters?: number;
+}
 
 function createRegularizer(regularization: string | null, rate: number) {
   if (regularization === "l1") {
@@ -60,6 +65,7 @@ export function buildModel(
   optimizer: string,
   learningRate: number,
   seed?: number,
+  constraints?: BuildModelConstraints,
 ): tf.LayersModel {
   const model = tf.sequential();
 
@@ -138,6 +144,17 @@ export function buildModel(
   );
 
   validateOutputShape(model, stage);
+
+  const totalParameterCount = model.countParams();
+  if (
+    constraints?.maxParameters != null &&
+    totalParameterCount > constraints.maxParameters
+  ) {
+    model.dispose();
+    throw new Error(
+      `モデルの総パラメータ数が上限を超えています。現在 ${formatParameterCount(totalParameterCount)} / 上限 ${formatParameterCount(constraints.maxParameters)} です。層の幅や数を減らすか、総パラメータ上限スキルを解放してください。`,
+    );
+  }
 
   const opt =
     optimizer === "adam"

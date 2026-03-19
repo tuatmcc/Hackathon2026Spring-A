@@ -5,7 +5,7 @@ import {
   extractRegressionSamplePoints,
   getClampedDigitsSampleIndex,
   getRegressionDomainFromSamplePoints,
-} from "./DataVisualization";
+} from "./dataVisualizationUtils";
 
 describe("DataVisualization helpers", () => {
   it("getClampedDigitsSampleIndexがサンプル範囲を超えないようにする", () => {
