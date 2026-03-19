@@ -31,6 +31,8 @@ interface GameStore {
   unlockSkill: (skillId: string) => void;
   addPoints: (amount: number) => void;
   clearStage: (stageId: string) => void;
+  hasSavedProgress: () => boolean;
+  resetProgress: () => void;
   selectStage: (index: number) => void;
   setPage: (page: PageId) => void;
   setShowMenu: (show: boolean) => void;
@@ -39,13 +41,34 @@ interface GameStore {
   setHasHydrated: (hydrated: boolean) => void;
 }
 
+const initialProgressState = {
+  points: 0,
+  unlockedSkills: initialSkills,
+  clearedStages: [],
+  currentStageIndex: 0,
+};
+
+function isInitialProgressState(state: {
+  points: number;
+  unlockedSkills: string[];
+  clearedStages: string[];
+  currentStageIndex: number;
+}) {
+  return (
+    state.points === initialProgressState.points &&
+    state.currentStageIndex === initialProgressState.currentStageIndex &&
+    state.clearedStages.length === 0 &&
+    state.unlockedSkills.length === initialProgressState.unlockedSkills.length &&
+    state.unlockedSkills.every(
+      (skillId, index) => skillId === initialProgressState.unlockedSkills[index],
+    )
+  );
+}
+
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
-      points: 0,
-      unlockedSkills: initialSkills,
-      clearedStages: [],
-      currentStageIndex: 0,
+      ...initialProgressState,
       hasSeenTutorial: false,
       seenStageIntroIds: [],
       currentPage: "play" as PageId,
@@ -79,6 +102,15 @@ export const useGameStore = create<GameStore>()(
 
       addPoints: (amount: number) =>
         set((s) => ({ points: s.points + amount })),
+
+      hasSavedProgress: () => !isInitialProgressState(get()),
+
+      resetProgress: () =>
+        set({
+          ...initialProgressState,
+          currentPage: "play",
+          showMenu: false,
+        }),
 
       clearStage: (stageId: string) => {
         const { clearedStages, currentStageIndex } = get();

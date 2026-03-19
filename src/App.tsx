@@ -51,6 +51,11 @@ function App() {
     setShowTutorialScreen(false);
   };
 
+  const handleReturnToTitle = () => {
+    setShowMenu(false);
+    setShowTitleScreen(true);
+  };
+
   if (!hasHydrated) {
     return <div className="app" />;
   }
@@ -95,6 +100,7 @@ function App() {
       {showMenu && (
         <MenuOverlay
           onClose={() => setShowMenu(false)}
+          onBackToTitle={handleReturnToTitle}
           onOpenTutorial={handleOpenTutorial}
         />
       )}
