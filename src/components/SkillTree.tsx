@@ -161,10 +161,12 @@ export function SkillTree({
                   opacity: isUnlocked(skill.id) ? 1 : 0.6,
                   background: isUnlocked(skill.id) ? "#e8f5e9" : "transparent",
                   minWidth: 120,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                 }}
               >
-                <strong style={{ fontSize: 13 }}>{skill.name}</strong>
-                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                <strong style={{ fontSize: 13, color: isUnlocked(skill.id) ? "#1b5e20" : "#333" }}>{skill.name}</strong>
+                <div style={{ fontSize: 11, color: isUnlocked(skill.id) ? "#2e7d32" : "#888", marginTop: 2 }}>
                   {skill.description}
                 </div>
                 {skill.cost > 0 && (
@@ -178,7 +180,7 @@ export function SkillTree({
                     disabled={!canUnlock(skill)}
                     style={{ marginTop: 4, fontSize: 11 }}
                   >
-                    Unlock
+                    UnLock
                   </button>
                 )}
               </div>
