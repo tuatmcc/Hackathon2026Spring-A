@@ -36,6 +36,7 @@ import {
   deserializeDataset,
   serializeDataset,
 } from "../ml/visualization";
+import { sortLayerNodesTopologically } from "../components/networkEditorUtils";
 
 interface PlayStore {
   // --- グラフ（見た目の情報）---
@@ -212,8 +213,11 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     let model: ReturnType<typeof buildModel> | null = null;
 
     try {
-      const { nodes, selectedOptimizer, learningRate, epochs, batchSize } = get();
-      const layers: LayerNodeData[] = nodes.map((node) => node.data);
+      const { nodes, edges, selectedOptimizer, learningRate, epochs, batchSize } = get();
+      const sortedNodes = edges.length > 0 && nodes.length > 1
+        ? sortLayerNodesTopologically(nodes, edges)
+        : nodes;
+      const layers: LayerNodeData[] = sortedNodes.map((node) => node.data);
       const activeModel = buildModel(
         layers,
         stage,

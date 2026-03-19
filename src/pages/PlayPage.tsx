@@ -38,6 +38,7 @@ export function PlayPage() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          stage={stage}
         />
       </div>
 
