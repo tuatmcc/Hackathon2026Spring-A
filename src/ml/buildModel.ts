@@ -12,14 +12,16 @@
 import * as tf from "@tensorflow/tfjs";
 import type { LayerNodeData, StageDef } from "../types";
 
-/**
- * ノードデータの配列からTF.jsモデルを構築する。
- *
- * @param layers - トポロジカルソート済みの隠れ層データ
- * @param stage  - ステージ定義（最終層・loss を固定するため）
- * @param optimizer - オプティマイザ名 ("sgd" | "adam")
- * @param learningRate - 学習率
- */
+function createRegularizer(regularization: string | null, rate: number) {
+  if (regularization === "l1") {
+    return tf.regularizers.l1({ l1: rate });
+  }
+  if (regularization === "l2") {
+    return tf.regularizers.l2({ l2: rate });
+  }
+  return undefined;
+}
+
 export function buildModel(
   layers: LayerNodeData[],
   stage: StageDef,
@@ -28,49 +30,67 @@ export function buildModel(
 ): tf.LayersModel {
   const model = tf.sequential();
 
-  // --- 隠れ層を積む ---
   for (let i = 0; i < layers.length; i++) {
     const layer = layers[i];
     const isFirst = i === 0;
-
-    // TODO: layer.layerType に応じた分岐を実装
-    //   "dense"   → tf.layers.dense(...)
-    //   "conv2d"  → tf.layers.conv2d(...)
-    //   "flatten" → tf.layers.flatten(...)
-    // TODO: layer.regularization に応じた正則化を適用
-    //   "dropout" → 直後に tf.layers.dropout を追加
-    //   "l1"/"l2" → kernelRegularizer パラメータ
+    const kernelRegularizer = createRegularizer(layer.regularization, layer.regularizationRate);
 
     switch (layer.layerType) {
       case "dense":
+        model.add(
+          tf.layers.dense({
+            units: layer.units,
+            activation: (layer.activation ?? "linear") as never,
+            kernelRegularizer,
+            ...(isFirst ? { inputShape: stage.inputShape } : {}),
+          }),
+        );
+        break;
+
+      case "conv2d":
+        model.add(
+          tf.layers.conv2d({
+            filters: layer.filters ?? layer.units,
+            kernelSize: layer.kernelSize ?? 3,
+            activation: (layer.activation ?? "relu") as never,
+            kernelRegularizer,
+            ...(isFirst ? { inputShape: stage.inputShape } : {}),
+          }),
+        );
+        break;
+
+      case "flatten":
+        model.add(
+          tf.layers.flatten({
+            ...(isFirst ? { inputShape: stage.inputShape } : {}),
+          }),
+        );
+        break;
+
       default:
         model.add(
           tf.layers.dense({
             units: layer.units,
             activation: (layer.activation ?? "linear") as never,
+            kernelRegularizer,
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
-        break;
     }
 
-    // TODO: dropout 等の正則化を追加
-    if (layer.regularization === "dropout") {
+    if (layer.regularization === "dropout" && layer.regularizationRate > 0) {
       model.add(tf.layers.dropout({ rate: layer.regularizationRate }));
     }
   }
 
-  // --- 最終層（ステージが固定）---
   model.add(
     tf.layers.dense({
       units: stage.outputUnits,
       activation: stage.outputActivation as never,
-      // 隠れ層が0個の場合の inputShape
       ...(layers.length === 0 ? { inputShape: stage.inputShape } : {}),
     }),
   );
 
-  // --- コンパイル ---
   const opt =
     optimizer === "adam"
       ? tf.train.adam(learningRate)

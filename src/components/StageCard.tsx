@@ -32,7 +32,7 @@ export function StageCard({
         background: isCleared ? "#e8f5e9" : isCurrent ? "#e3f2fd" : "transparent",
       }}
     >
-      <div>
+      <div style={{ textAlign: "left" }}>
         <strong>
           {stage.name} {isCleared && "(Cleared)"} {isCurrent && " <-"}
         </strong>

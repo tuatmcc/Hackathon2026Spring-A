@@ -30,15 +30,17 @@ export interface StageDef {
   description: string;
   /** datasets.ts のレジストリキー */
   datasetId: string;
-  /** 入力テンソルの形状。[2] = 2D特徴量, [28,28,1] = 画像 */
+  /** 入力テンソルの形状。[1] = 1D特徴量, [2] = 2D特徴量, [28,28,1] = 画像 */
   inputShape: number[];
   taskType: "binary" | "multiclass" | "regression";
   /** ステージが固定する最終層 */
   outputUnits: number;
   outputActivation: string; // "sigmoid" | "softmax" | "linear"
   lossFunction: string; // "binaryCrossentropy" | "categoricalCrossentropy" | "meanSquaredError"
-  /** クリア条件: validation accuracy がこれ以上 */
+  /** クリア条件: 分類は accuracy >= targetAccuracy */
   targetAccuracy: number;
+  /** クリア条件: 回帰は MSE <= targetLoss */
+  targetLoss?: number;
   rewardPoints: number;
 }
 
@@ -55,6 +57,10 @@ export interface LayerNodeData {
   /** 正則化。スキルID と一致する ("dropout" | "l1" | "l2" | null) */
   regularization: string | null;
   regularizationRate: number;
+  /** conv2d用: フィルタ数 */
+  filters?: number;
+  /** conv2d用: カーネルサイズ */
+  kernelSize?: number;
   [key: string]: unknown; // React Flow 互換
 }
 
