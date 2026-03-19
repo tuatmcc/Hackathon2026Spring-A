@@ -10,6 +10,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  applyNodeChanges,
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
@@ -40,42 +41,6 @@ interface Props {
 const INPUT_NODE_ID = "__input__";
 const OUTPUT_NODE_ID = "__output__";
 
-function createFixedNodes(
-  stage: StageDef | null,
-): Node[] {
-  if (!stage) return [];
-
-  const inputNode: Node = {
-    id: INPUT_NODE_ID,
-    type: "fixedNode",
-    position: { x: 0, y: 150 },
-    data: {
-      nodeType: "input",
-      shape: stage.inputShape,
-    },
-    draggable: false,
-    selectable: true,
-    deletable: false,
-  };
-
-  const outputNode: Node = {
-    id: OUTPUT_NODE_ID,
-    type: "fixedNode",
-    position: { x: 600, y: 150 },
-    data: {
-      nodeType: "output",
-      shape: [stage.outputUnits],
-      activation: stage.outputActivation,
-      units: stage.outputUnits,
-    },
-    draggable: false,
-    selectable: true,
-    deletable: false,
-  };
-
-  return [inputNode, outputNode];
-}
-
 export function NetworkEditor({
   nodes,
   edges,
@@ -85,6 +50,7 @@ export function NetworkEditor({
   stage,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [fixedNodes, setFixedNodes] = useState<Node[]>([]);
   const [selectionBox, setSelectionBox] = useState<{
     startClientX: number;
     startClientY: number;
@@ -100,7 +66,39 @@ export function NetworkEditor({
   >(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  const fixedNodes = useMemo(() => createFixedNodes(stage), [stage]);
+  // Initialize fixed nodes when stage changes
+  useMemo(() => {
+    if (!stage) {
+      setFixedNodes([]);
+      return;
+    }
+    setFixedNodes([
+      {
+        id: INPUT_NODE_ID,
+        type: "fixedNode",
+        position: { x: 0, y: 150 },
+        data: {
+          nodeType: "input",
+          shape: stage.inputShape,
+        },
+        selectable: true,
+        deletable: false,
+      },
+      {
+        id: OUTPUT_NODE_ID,
+        type: "fixedNode",
+        position: { x: 600, y: 150 },
+        data: {
+          nodeType: "output",
+          shape: [stage.outputUnits],
+          activation: stage.outputActivation,
+          units: stage.outputUnits,
+        },
+        selectable: true,
+        deletable: false,
+      },
+    ]);
+  }, [stage?.id]);
   
   const allNodes = useMemo(() => {
     if (!stage) return nodes;
@@ -119,18 +117,20 @@ export function NetworkEditor({
 
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      const filteredChanges = changes.filter((change) => {
-        if (change.type === "remove" && isFixedNodeId(change.id)) {
-          return false;
-        }
-        if (change.type === "position" && isFixedNodeId(change.id)) {
-          return false;
-        }
-        return true;
-      });
+      const fixedChanges = changes.filter(
+        (change) => "id" in change && isFixedNodeId(change.id)
+      );
       
-      if (filteredChanges.length > 0) {
-        onNodesChange(filteredChanges);
+      if (fixedChanges.length > 0) {
+        setFixedNodes((prev) => applyNodeChanges(fixedChanges, prev));
+      }
+
+      const otherChanges = changes.filter(
+        (change) => !("id" in change) || !isFixedNodeId(change.id)
+      );
+      
+      if (otherChanges.length > 0) {
+        onNodesChange(otherChanges);
       }
     },
     [onNodesChange],
