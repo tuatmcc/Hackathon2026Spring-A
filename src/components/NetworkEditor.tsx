@@ -5,7 +5,7 @@
 // React Flow のカスタムノード、D&D、バリデーション等を実装。
 // ============================================================
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -23,9 +23,10 @@ import "@xyflow/react/dist/style.css";
 import { NodePalette } from "./NodePalette";
 import { LayerConfigPanel } from "./LayerConfigPanel";
 import { LayerNode } from "./LayerNode";
+import { FixedNode } from "./FixedNode";
 import { createLayerNode } from "./layerNodeFactory";
-import { isValidLayerConnection } from "./networkEditorUtils";
-import type { LayerNodeData } from "../types";
+import { isValidLayerConnection, isFixedNodeId } from "./networkEditorUtils";
+import type { LayerNodeData, StageDef } from "../types";
 
 interface Props {
   nodes: Node<LayerNodeData>[];
@@ -33,6 +34,46 @@ interface Props {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
+  stage: StageDef | null;
+}
+
+const INPUT_NODE_ID = "__input__";
+const OUTPUT_NODE_ID = "__output__";
+
+function createFixedNodes(
+  stage: StageDef | null,
+): Node[] {
+  if (!stage) return [];
+
+  const inputNode: Node = {
+    id: INPUT_NODE_ID,
+    type: "fixedNode",
+    position: { x: 0, y: 150 },
+    data: {
+      nodeType: "input",
+      shape: stage.inputShape,
+    },
+    draggable: false,
+    selectable: true,
+    deletable: false,
+  };
+
+  const outputNode: Node = {
+    id: OUTPUT_NODE_ID,
+    type: "fixedNode",
+    position: { x: 600, y: 150 },
+    data: {
+      nodeType: "output",
+      shape: [stage.outputUnits],
+      activation: stage.outputActivation,
+      units: stage.outputUnits,
+    },
+    draggable: false,
+    selectable: true,
+    deletable: false,
+  };
+
+  return [inputNode, outputNode];
 }
 
 export function NetworkEditor({
@@ -41,6 +82,7 @@ export function NetworkEditor({
   onNodesChange,
   onEdgesChange,
   onConnect,
+  stage,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{
@@ -54,13 +96,52 @@ export function NetworkEditor({
     currentY: number;
   } | null>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<
-    ReactFlowInstance<Node<LayerNodeData>, Edge> | null
+    ReactFlowInstance<Node, Edge> | null
   >(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  const nodeTypes: NodeTypes = {
+  const fixedNodes = useMemo(() => createFixedNodes(stage), [stage]);
+  
+  const allNodes = useMemo(() => {
+    if (!stage) return nodes;
+    return [...fixedNodes, ...nodes];
+  }, [fixedNodes, nodes, stage]);
+
+  const allEdges = useMemo(() => {
+    if (!stage) return edges;
+    return edges;
+  }, [edges, stage]);
+
+  const nodeTypes: NodeTypes = useMemo(() => ({
     layerNode: LayerNode,
-  };
+    fixedNode: FixedNode,
+  }), []);
+
+  const handleNodesChange: OnNodesChange = useCallback(
+    (changes) => {
+      const filteredChanges = changes.filter((change) => {
+        if (change.type === "remove" && isFixedNodeId(change.id)) {
+          return false;
+        }
+        if (change.type === "position" && isFixedNodeId(change.id)) {
+          return false;
+        }
+        return true;
+      });
+      
+      if (filteredChanges.length > 0) {
+        onNodesChange(filteredChanges);
+      }
+    },
+    [onNodesChange],
+  );
+
+  const handleEdgesChange: OnEdgesChange = useCallback(
+    (changes) => {
+      onEdgesChange(changes);
+    },
+    [onEdgesChange],
+  );
 
   const handleNodeClick = useCallback((_: unknown, node: Node) => {
     setSelectedNodeId(node.id);
@@ -72,8 +153,8 @@ export function NetworkEditor({
 
   const validateConnection = useCallback(
     (connection: Connection | Edge) =>
-      isValidLayerConnection(connection, nodes, edges),
-    [edges, nodes],
+      isValidLayerConnection(connection, allNodes, allEdges, stage !== null),
+    [allEdges, allNodes, stage],
   );
 
   const handleConnect = useCallback(
@@ -286,12 +367,12 @@ export function NetworkEditor({
         onDrop={handleDrop}
       >
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={allNodes}
+          edges={allEdges}
           nodeTypes={nodeTypes}
           onInit={setReactFlowInstance}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}

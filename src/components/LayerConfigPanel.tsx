@@ -11,6 +11,7 @@ import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData } from "../types";
+import { isFixedNodeId } from "./networkEditorUtils";
 
 interface Props {
   selectedNodeId: string | null;
@@ -88,6 +89,21 @@ export function LayerConfigPanel({ selectedNodeId }: Props) {
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
   const nodes = usePlayStore((s) => s.nodes);
   const updateNodeData = usePlayStore((s) => s.updateNodeData);
+
+  if (selectedNodeId && isFixedNodeId(selectedNodeId)) {
+    return (
+      <div style={{ padding: 8, color: "#888", fontSize: 12 }}>
+        <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+          {selectedNodeId === "__input__" ? "Input Layer" : "Output Layer"}
+        </div>
+        <div>
+          {selectedNodeId === "__input__"
+            ? "Fixed by stage definition."
+            : "Fixed by stage definition."}
+        </div>
+      </div>
+    );
+  }
 
   const node = nodes.find((n) => n.id === selectedNodeId);
   if (!node) {

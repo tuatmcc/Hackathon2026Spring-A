@@ -8,10 +8,11 @@ export function createLayerNode(
   position?: { x: number; y: number },
 ): Node<LayerNodeData> {
   nodeIdCounter++;
+  const existingCount = nodeIdCounter;
   return {
     id: `layer-${nodeIdCounter}`,
     type: "layerNode",
-    position: position ?? { x: 100, y: 80 * nodeIdCounter },
+    position: position ?? { x: 200 + existingCount * 150, y: 150 },
     data: {
       layerType,
       units: 32,

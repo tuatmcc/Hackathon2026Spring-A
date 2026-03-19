@@ -1,6 +1,13 @@
 import type { Connection, Edge, Node } from "@xyflow/react";
 import type { LayerNodeData } from "../types";
 
+const INPUT_NODE_ID = "__input__";
+const OUTPUT_NODE_ID = "__output__";
+
+export function isFixedNodeId(nodeId: string): boolean {
+  return nodeId === INPUT_NODE_ID || nodeId === OUTPUT_NODE_ID;
+}
+
 function compareNodePositions(
   a: Node<LayerNodeData>,
   b: Node<LayerNodeData>,
@@ -56,13 +63,26 @@ function wouldCreateCycle(
 
 export function isValidLayerConnection(
   connection: Connection | Edge,
-  nodes: Node<LayerNodeData>[],
+  nodes: Node[],
   edges: Edge[],
+  hasFixedNodes: boolean = false,
 ): boolean {
   const { source, target } = connection;
 
   if (!source || !target || source === target) {
     return false;
+  }
+
+  if (hasFixedNodes) {
+    if (source === OUTPUT_NODE_ID) {
+      return false;
+    }
+    if (target === INPUT_NODE_ID) {
+      return false;
+    }
+    if (source === INPUT_NODE_ID && target === OUTPUT_NODE_ID) {
+      return false;
+    }
   }
 
   const sourceNode = nodes.find((node) => node.id === source);
@@ -80,11 +100,11 @@ export function isValidLayerConnection(
     return false;
   }
 
-  if (edges.some((edge) => edge.source === source)) {
+  if (!isFixedNodeId(source) && edges.some((edge) => edge.source === source)) {
     return false;
   }
 
-  if (edges.some((edge) => edge.target === target)) {
+  if (!isFixedNodeId(target) && edges.some((edge) => edge.target === target)) {
     return false;
   }
 
@@ -110,6 +130,11 @@ export function sortLayerNodesTopologically(
     if (!edge.source || !edge.target) {
       continue;
     }
+    
+    if (isFixedNodeId(edge.source) || isFixedNodeId(edge.target)) {
+      continue;
+    }
+    
     if (!nodesById.has(edge.source) || !nodesById.has(edge.target)) {
       throw new Error("Edge references a missing node.");
     }
@@ -125,7 +150,7 @@ export function sortLayerNodesTopologically(
     }
   }
 
-  if (edges.length > 0) {
+  if (edges.length > 0 && nodes.length > 1) {
     const disconnectedNodes = nodes.filter(
       (node) =>
         (indegree.get(node.id) ?? 0) === 0 && (outdegree.get(node.id) ?? 0) === 0,
