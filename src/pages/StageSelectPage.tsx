@@ -9,9 +9,10 @@ import { StageCard } from "../components/StageCard";
 
 interface Props {
   onClose: () => void;
+  onOpenTutorial: () => void;
 }
 
-export function MenuOverlay({ onClose }: Props) {
+export function MenuOverlay({ onClose, onOpenTutorial }: Props) {
   const { clearedStages, currentStageIndex, selectStage } = useGameStore();
   const { resetPlay } = usePlayStore();
 
@@ -26,9 +27,14 @@ export function MenuOverlay({ onClose }: Props) {
       <div className="menu-content">
         <div className="menu-header">
           <h2>Menu</h2>
-          <button className="menu-close" onClick={onClose}>
-            Close
-          </button>
+          <div className="menu-header-actions">
+            <button className="menu-close" onClick={onOpenTutorial}>
+              Tutorial
+            </button>
+            <button className="menu-close" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
 
         <h3 style={{ marginTop: 16 }}>Stage Select</h3>
