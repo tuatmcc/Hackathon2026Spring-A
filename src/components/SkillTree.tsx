@@ -7,8 +7,27 @@ import type { CSSProperties } from "react";
 import type { SkillDef } from "../types";
 import { SteamParticles } from "./SteamParticles";
 
-function groupByLevel(skills: SkillDef[]): SkillDef[][] {
+function getDependencyOrderScore(
+  skill: SkillDef,
+  previousLevelOrder: Map<string, number>,
+  originalIndexById: Map<string, number>,
+) {
+  if (skill.dependencies.length === 0) {
+    return originalIndexById.get(skill.id) ?? 0;
+  }
+
+  const dependencyOrders = skill.dependencies.map(
+    (dependencyId) =>
+      previousLevelOrder.get(dependencyId) ?? originalIndexById.get(dependencyId) ?? 0,
+  );
+
+  return dependencyOrders.reduce((total, order) => total + order, 0) / dependencyOrders.length;
+}
+
+export function groupByLevel(skills: SkillDef[]): SkillDef[][] {
   const levels = new Map<string, number>();
+  const originalIndexById = new Map(skills.map((skill, index) => [skill.id, index]));
+  const skillById = new Map(skills.map((skill) => [skill.id, skill]));
 
   function getLevel(skill: SkillDef): number {
     if (levels.has(skill.id)) return levels.get(skill.id)!;
@@ -17,21 +36,48 @@ function groupByLevel(skills: SkillDef[]): SkillDef[][] {
       return 0;
     }
     const maxDepLevel = Math.max(
-      ...skill.dependencies.map(d => {
-        const dep = skills.find(s => s.id === d);
+      ...skill.dependencies.map((d) => {
+        const dep = skillById.get(d);
         return dep ? getLevel(dep) : 0;
-      })
+      }),
     );
     levels.set(skill.id, maxDepLevel + 1);
     return maxDepLevel + 1;
   }
 
-  skills.forEach(s => getLevel(s));
+  skills.forEach((s) => getLevel(s));
 
   const maxLevel = Math.max(...levels.values(), 0);
-  return Array.from({ length: maxLevel + 1 }, (_, i) =>
-    skills.filter(s => levels.get(s.id) === i)
+  const grouped = Array.from({ length: maxLevel + 1 }, (_, i) =>
+    skills.filter((skill) => levels.get(skill.id) === i),
   );
+
+  let previousLevelOrder = new Map<string, number>();
+  grouped.forEach((levelSkills) => {
+    // Keep later tiers aligned with the horizontal order of their dependencies to reduce crossing edges.
+    levelSkills.sort((leftSkill, rightSkill) => {
+      const leftScore = getDependencyOrderScore(
+        leftSkill,
+        previousLevelOrder,
+        originalIndexById,
+      );
+      const rightScore = getDependencyOrderScore(
+        rightSkill,
+        previousLevelOrder,
+        originalIndexById,
+      );
+
+      if (leftScore !== rightScore) {
+        return leftScore - rightScore;
+      }
+
+      return (originalIndexById.get(leftSkill.id) ?? 0) - (originalIndexById.get(rightSkill.id) ?? 0);
+    });
+
+    previousLevelOrder = new Map(levelSkills.map((skill, index) => [skill.id, index]));
+  });
+
+  return grouped;
 }
 
 interface Props {
@@ -64,7 +110,7 @@ export function SkillTree({
       newPositions.set(id, el.getBoundingClientRect());
     });
     setPositions(newPositions);
-  }, [skills]);
+  }, [skills, points, unlockedSkills, justUnlocked]);
 
   const setSkillRef = useCallback((skillId: string) => (el: HTMLDivElement | null) => {
     if (el) {
