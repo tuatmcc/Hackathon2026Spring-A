@@ -1,11 +1,3 @@
-// ============================================================
-// 学習ループ
-//
-// 【担当者へ】
-// React を import しない。純粋な async 関数。
-// PlayPage (コントローラ) から呼ばれる。
-// ============================================================
-
 import * as tf from "@tensorflow/tfjs";
 import type { Dataset } from "./datasets";
 import type { TrainingMetrics } from "../types";
@@ -13,6 +5,8 @@ import type { TrainingMetrics } from "../types";
 export interface TrainOptions {
   epochs: number;
   batchSize: number;
+  validationSplit?: number;
+  signal?: AbortSignal;
   onEpochEnd?: (metrics: TrainingMetrics) => void;
 }
 
@@ -21,23 +15,27 @@ export interface TrainResult {
   finalAccuracy?: number;
 }
 
-/**
- * モデルを学習させる。
- * epoch ごとに onEpochEnd コールバックで指標を返す。
- */
 export async function trainModel(
   model: tf.LayersModel,
   dataset: Dataset,
   options: TrainOptions,
 ): Promise<TrainResult> {
-  const { epochs, batchSize, onEpochEnd } = options;
+  const { epochs, batchSize, validationSplit = 0.2, signal, onEpochEnd } = options;
+
+  if (signal?.aborted) {
+    throw new Error("Training aborted");
+  }
 
   const history = await model.fit(dataset.xs, dataset.ys, {
     epochs,
     batchSize,
-    validationSplit: 0.2,
+    validationSplit,
     callbacks: {
       onEpochEnd: (epoch, logs) => {
+        if (signal?.aborted) {
+          model.stopTraining = true;
+          throw new Error("Training aborted");
+        }
         if (onEpochEnd && logs) {
           onEpochEnd({
             epoch,
