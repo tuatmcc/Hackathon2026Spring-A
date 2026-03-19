@@ -96,6 +96,16 @@ describe("buildModel", () => {
       first.dispose();
       second.dispose();
     });
+
+    it("総パラメータ数の上限を超える構成を拒否する", () => {
+      const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
+      ];
+
+      expect(() =>
+        buildModel(layers, testStage, "sgd", 0.1, undefined, { maxParameters: 16 }),
+      ).toThrow("総パラメータ数");
+    });
   });
 
   describe("conv2d層", () => {

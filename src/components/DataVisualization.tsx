@@ -7,23 +7,27 @@ import { useVisualizerStore } from "../stores/visualizerStore";
 import type { StageDef, TrainingStatus } from "../types";
 import type {
   DigitsPredictionSnapshot,
+  RegressionCurvePoint,
   RegressionCurveSnapshot,
+  SerializedDataset,
   VisualizationDomain,
 } from "../types/visualizationTypes";
 import {
-  buildCurvePath,
   extractDigitsSample,
   extractRegressionSamplePoints,
-  extractScatterPoints,
   getClampedDigitsSampleIndex,
   getRegressionDomainFromSamplePoints,
-  isDigitsStage,
-  isRegressionStage,
-  isTwoDimensionalStage,
-  type DigitsSampleItem,
-  type RegressionSamplePoint,
-  type ScatterPoint,
-} from "./DataVisualizationUtils";
+} from "./dataVisualizationUtils";
+import type {
+  DigitsSampleItem,
+  RegressionSamplePoint,
+} from "./dataVisualizationUtils";
+
+interface ScatterPoint {
+  x: number;
+  y: number;
+  label: number;
+}
 
 const POSITIVE_COLOR = [181, 137, 33] as const;
 const NEGATIVE_COLOR = [80, 72, 58] as const;
@@ -51,13 +55,8 @@ export function DataVisualization() {
   const visualizationSnapshot = useVisualizerStore((s) => s.visualizationSnapshot);
   const visualizationStageId = useVisualizerStore((s) => s.visualizationStageId);
   const prepareVisualization = useVisualizerStore((s) => s.prepareVisualization);
-  const [digitsSampleState, setDigitsSampleState] = useState<{
-    stageId: string | null;
-    sampleCount: number;
-    sampleIndex: number;
-  }>({
-    stageId: null,
-    sampleCount: 0,
+  const [digitsSampleState, setDigitsSampleState] = useState({
+    datasetKey: "",
     sampleIndex: 0,
   });
   const activeDataset =
@@ -93,11 +92,13 @@ export function DataVisualization() {
   }, [activeDataset, stage]);
 
   const digitsSampleCount = activeDataset?.sampleCount ?? 0;
-  const clampedDigitsSampleIndex = getClampedDigitsSampleIndex(
-    digitsSampleState.stageId === stage?.id &&
-      digitsSampleState.sampleCount === digitsSampleCount
+  const digitsDatasetKey = `${stage?.id ?? "none"}:${digitsSampleCount}`;
+  const requestedDigitsSampleIndex =
+    digitsSampleState.datasetKey === digitsDatasetKey
       ? digitsSampleState.sampleIndex
-      : 0,
+      : 0;
+  const clampedDigitsSampleIndex = getClampedDigitsSampleIndex(
+    requestedDigitsSampleIndex,
     digitsSampleCount,
   );
 
@@ -125,6 +126,21 @@ export function DataVisualization() {
     activeRegressionSnapshot?.domain ??
     getRegressionDomainFromSamplePoints(regressionSamples);
 
+  const updateDigitsSampleIndex = (updater: (current: number) => number) => {
+    setDigitsSampleState((current) => {
+      const baseIndex =
+        current.datasetKey === digitsDatasetKey ? current.sampleIndex : 0;
+
+      return {
+        datasetKey: digitsDatasetKey,
+        sampleIndex: getClampedDigitsSampleIndex(
+          updater(baseIndex),
+          digitsSampleCount,
+        ),
+      };
+    });
+  };
+
   if (!stage) {
     return <div style={placeholderStyle}>No stage selected</div>;
   }
@@ -149,18 +165,8 @@ export function DataVisualization() {
       digitsSample,
       clampedDigitsSampleIndex,
       digitsSampleCount,
-      () =>
-        setDigitsSampleState({
-          stageId: stage.id,
-          sampleCount: digitsSampleCount,
-          sampleIndex: clampedDigitsSampleIndex - 1,
-        }),
-      () =>
-        setDigitsSampleState({
-          stageId: stage.id,
-          sampleCount: digitsSampleCount,
-          sampleIndex: clampedDigitsSampleIndex + 1,
-        }),
+      () => updateDigitsSampleIndex((current) => current - 1),
+      () => updateDigitsSampleIndex((current) => current + 1),
     );
   }
 
@@ -537,6 +543,59 @@ function renderDigitsVisualization(
   );
 }
 
+function isTwoDimensionalStage(stage: StageDef) {
+  return stage.inputShape.length === 1 && stage.inputShape[0] === 2;
+}
+
+function isDigitsStage(stage: StageDef) {
+  return (
+    stage.inputShape.length === 3 &&
+    stage.inputShape[0] === 8 &&
+    stage.inputShape[1] === 8 &&
+    stage.inputShape[2] === 1
+  );
+}
+
+function isRegressionStage(stage: StageDef) {
+  return (
+    stage.taskType === "regression" &&
+    stage.inputShape.length === 1 &&
+    stage.inputShape[0] === 1
+  );
+}
+
+function extractScatterPoints(dataset: SerializedDataset): ScatterPoint[] {
+  const points: ScatterPoint[] = [];
+
+  for (let index = 0; index < dataset.sampleCount; index++) {
+    const inputOffset = index * 2;
+
+    points.push({
+      x: dataset.xs[inputOffset] ?? 0,
+      y: dataset.xs[inputOffset + 1] ?? 0,
+      label: dataset.labels[index] ?? 0,
+    });
+  }
+
+  return points;
+}
+
+function buildCurvePath(
+  points: RegressionSamplePoint[] | RegressionCurvePoint[],
+  domain: VisualizationDomain,
+) {
+  if (points.length === 0) {
+    return "";
+  }
+
+  return points
+    .map((point, index) => {
+      const command = index === 0 ? "M" : "L";
+      return `${command} ${scaleX(point.x, domain).toFixed(2)} ${scaleY(point.y, domain).toFixed(2)}`;
+    })
+    .join(" ");
+}
+
 function renderAxis(domain: VisualizationDomain, axis: "x" | "y") {
   if (axis === "x") {
     if (domain.minY > 0 || domain.maxY < 0) {
@@ -617,7 +676,6 @@ function rgb(color: readonly [number, number, number]) {
 function formatScalar(value: number | undefined) {
   return value != null ? value.toFixed(4) : "--";
 }
-
 
 const panelStyle: CSSProperties = {
   display: "flex",

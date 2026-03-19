@@ -24,7 +24,7 @@ export function StageCard({
   return (
     <div style={cardStyle(isCurrent, isCleared)}>
       <div style={{ textAlign: "left", flex: 1 }}>
-        <strong style={nameStyle(isCurrent, isCleared)}>
+        <strong style={nameStyle()}>
           {stage.name}
           {isCleared && <span style={clearedBadgeStyle}> Cleared</span>}
           {isCurrent && <span style={currentBadgeStyle}> Current</span>}
@@ -59,7 +59,7 @@ function cardStyle(isCurrent: boolean, isCleared: boolean): CSSProperties {
   };
 }
 
-function nameStyle(_isCurrent: boolean, _isCleared: boolean): CSSProperties {
+function nameStyle(): CSSProperties {
   return {
     fontSize: 13,
     color: "var(--text-h)",

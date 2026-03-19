@@ -2,11 +2,11 @@
 // SkillTree — Steampunk-themed skill tree UI
 // ============================================================
 
-import { useRef, useState, useLayoutEffect, useCallback } from "react";
+import { useRef, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { SkillDef } from "../types";
 import { SteamParticles } from "./SteamParticles";
-import { groupByLevel } from "./SkillTreeUtils";
+import { groupByLevel } from "./skillTreeLayout";
 
 interface Props {
   title: string;
@@ -27,19 +27,25 @@ export function SkillTree({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const skillRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [positions, setPositions] = useState<Map<string, DOMRect>>(new Map());
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+  const [positions, setPositions] = useState<Map<string, DOMRect>>(new Map());
   const [justUnlocked, setJustUnlocked] = useState<string | null>(null);
 
   useLayoutEffect(() => {
-    const nextContainerRect = containerRef.current?.getBoundingClientRect() ?? null;
-    setContainerRect(nextContainerRect);
-    if (!nextContainerRect) return;
-    const newPositions = new Map<string, DOMRect>();
-    skillRefs.current.forEach((el, id) => {
-      newPositions.set(id, el.getBoundingClientRect());
+    const frameId = window.requestAnimationFrame(() => {
+      const nextContainerRect = containerRef.current?.getBoundingClientRect();
+      if (!nextContainerRect) return;
+      const newPositions = new Map<string, DOMRect>();
+      skillRefs.current.forEach((el, id) => {
+        newPositions.set(id, el.getBoundingClientRect());
+      });
+      setContainerRect(nextContainerRect);
+      setPositions(newPositions);
     });
-    setPositions(newPositions);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [skills, points, unlockedSkills, justUnlocked]);
 
   const setSkillRef = useCallback((skillId: string) => (el: HTMLDivElement | null) => {
@@ -64,17 +70,16 @@ export function SkillTree({
   };
 
   const levels = groupByLevel(skills);
-
-  const getLines = () => {
+  const lines = useMemo(() => {
     if (!containerRect) return [];
-    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    const nextLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
     skills.forEach((skill) => {
       const toRect = positions.get(skill.id);
       if (!toRect) return;
       skill.dependencies.forEach((depId) => {
         const fromRect = positions.get(depId);
         if (!fromRect) return;
-        lines.push({
+        nextLines.push({
           x1: fromRect.left + fromRect.width / 2 - containerRect.left,
           y1: fromRect.bottom - containerRect.top,
           x2: toRect.left + toRect.width / 2 - containerRect.left,
@@ -82,8 +87,8 @@ export function SkillTree({
         });
       });
     });
-    return lines;
-  };
+    return nextLines;
+  }, [containerRect, positions, skills]);
 
   return (
     <div ref={containerRef} style={treeContainerStyle}>
@@ -111,7 +116,7 @@ export function SkillTree({
             <polygon points="0 0, 10 3.5, 0 7" fill="#8b4513" />
           </marker>
         </defs>
-        {getLines().map((line, i) => (
+        {lines.map((line, i) => (
           <line
             key={i}
             x1={line.x1}

@@ -1,16 +1,8 @@
-import type { StageDef } from "../types";
 import type {
   DigitsPredictionSnapshot,
-  RegressionCurvePoint,
   SerializedDataset,
   VisualizationDomain,
 } from "../types/visualizationTypes";
-
-export interface ScatterPoint {
-  x: number;
-  y: number;
-  label: number;
-}
 
 export interface RegressionSamplePoint {
   x: number;
@@ -27,49 +19,12 @@ export interface DigitsSampleItem {
   isCorrect: boolean | null;
 }
 
-export const DEFAULT_REGRESSION_DOMAIN: VisualizationDomain = {
+const DEFAULT_REGRESSION_DOMAIN: VisualizationDomain = {
   minX: -1.1,
   maxX: 1.1,
   minY: -1.2,
   maxY: 1.2,
 };
-
-export function isTwoDimensionalStage(stage: StageDef) {
-  return stage.inputShape.length === 1 && stage.inputShape[0] === 2;
-}
-
-export function isDigitsStage(stage: StageDef) {
-  return (
-    stage.inputShape.length === 3 &&
-    stage.inputShape[0] === 8 &&
-    stage.inputShape[1] === 8 &&
-    stage.inputShape[2] === 1
-  );
-}
-
-export function isRegressionStage(stage: StageDef) {
-  return (
-    stage.taskType === "regression" &&
-    stage.inputShape.length === 1 &&
-    stage.inputShape[0] === 1
-  );
-}
-
-export function extractScatterPoints(dataset: SerializedDataset): ScatterPoint[] {
-  const points: ScatterPoint[] = [];
-
-  for (let index = 0; index < dataset.sampleCount; index++) {
-    const inputOffset = index * 2;
-
-    points.push({
-      x: dataset.xs[inputOffset] ?? 0,
-      y: dataset.xs[inputOffset + 1] ?? 0,
-      label: dataset.labels[index] ?? 0,
-    });
-  }
-
-  return points;
-}
 
 export function getClampedDigitsSampleIndex(
   sampleIndex: number,
@@ -128,6 +83,19 @@ export function extractRegressionSamplePoints(
   return points.sort((left, right) => left.x - right.x);
 }
 
+function expandDomainEdge(
+  minValue: number,
+  maxValue: number,
+  ratio: number,
+  minimumPadding: number,
+  edge: "min" | "max",
+) {
+  const span = maxValue - minValue;
+  const padding = Math.max(span * ratio, minimumPadding);
+
+  return edge === "min" ? minValue - padding : maxValue + padding;
+}
+
 export function getRegressionDomainFromSamplePoints(
   points: RegressionSamplePoint[],
 ): VisualizationDomain {
@@ -144,45 +112,4 @@ export function getRegressionDomainFromSamplePoints(
     minY: expandDomainEdge(Math.min(...ys), Math.max(...ys), 0.12, 0.4, "min"),
     maxY: expandDomainEdge(Math.min(...ys), Math.max(...ys), 0.12, 0.4, "max"),
   };
-}
-
-export function buildCurvePath(
-  points: RegressionSamplePoint[] | RegressionCurvePoint[],
-  domain: VisualizationDomain,
-) {
-  if (points.length === 0) {
-    return "";
-  }
-
-  return points
-    .map((point, index) => {
-      const command = index === 0 ? "M" : "L";
-      return `${command} ${scaleX(point.x, domain).toFixed(2)} ${scaleY(point.y, domain).toFixed(2)}`;
-    })
-    .join(" ");
-}
-
-function expandDomainEdge(
-  min: number,
-  max: number,
-  ratio: number,
-  minimumPadding: number,
-  edge: "min" | "max",
-) {
-  const span = max - min;
-  const padding = Math.max(span * ratio, minimumPadding);
-  return edge === "min" ? min - padding : max + padding;
-}
-
-function scaleX(value: number, domain: VisualizationDomain) {
-  return (
-    ((value - domain.minX) / (domain.maxX - domain.minX)) * 100
-  );
-}
-
-function scaleY(value: number, domain: VisualizationDomain) {
-  return (
-    100 -
-    ((value - domain.minY) / (domain.maxY - domain.minY)) * 100
-  );
 }

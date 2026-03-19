@@ -23,9 +23,7 @@ export function groupByLevel(skills: SkillDef[]): SkillDef[][] {
   const skillById = new Map(skills.map((skill) => [skill.id, skill]));
 
   function getLevel(skill: SkillDef): number {
-    if (levels.has(skill.id)) {
-      return levels.get(skill.id)!;
-    }
+    if (levels.has(skill.id)) return levels.get(skill.id)!;
     if (skill.dependencies.length === 0) {
       levels.set(skill.id, 0);
       return 0;
