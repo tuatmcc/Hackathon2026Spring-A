@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import * as tf from "@tensorflow/tfjs-node";
 import { generateSpiralData } from "./datasets";
 
 describe("datasets", () => {
