@@ -767,3 +767,30 @@ select {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--brass);
 }
+
+.skill-tree-page__viewport {
+  scrollbar-color: var(--brass) rgba(26, 26, 26, 0.92);
+  scrollbar-width: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.skill-tree-page__viewport::-webkit-scrollbar {
+  height: 16px;
+  width: 12px;
+}
+
+.skill-tree-page__viewport::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(44, 44, 44, 0.92), rgba(26, 26, 26, 0.98));
+  border: 2px solid rgba(44, 44, 44, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(181, 137, 33, 0.24);
+}
+
+.skill-tree-page__viewport::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(212, 164, 42, 0.98), rgba(184, 115, 51, 0.98));
+  border: 2px solid rgba(26, 26, 26, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(240, 235, 224, 0.16);
+}
+
+.skill-tree-page__viewport::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(222, 176, 58, 1), rgba(192, 125, 63, 1));
+}
