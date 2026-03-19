@@ -8,6 +8,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { SKILL_DATA } from "../config/skills";
+import { getLayerSizeOptions } from "../layerSizeOptions";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData } from "../types";
@@ -17,11 +18,13 @@ interface Props {
   selectedNodeId: string | null;
 }
 
-const UNIT_OPTIONS = [8, 16, 32, 64, 128, 256, 512];
-
 function getSkillDescription(skillId: string | null) {
   if (!skillId) return null;
   return SKILL_DATA.find((skill) => skill.id === skillId)?.description ?? null;
+}
+
+function clampToRange(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(value, max));
 }
 
 function HelpTooltip({ text }: { text: string }) {
@@ -125,12 +128,20 @@ export function LayerConfigPanel({ selectedNodeId }: Props) {
   const activationDescription = getSkillDescription(data.activation);
   const regularizationDescription = getSkillDescription(data.regularization);
   const isUnitsEditable = data.layerType !== "flatten";
-  const unitSliderIndexCandidate = UNIT_OPTIONS.findIndex((value) => value >= data.units);
-  const unitSliderIndex =
-    unitSliderIndexCandidate === -1 ? UNIT_OPTIONS.length - 1 : unitSliderIndexCandidate;
+  const isConvLayer = data.layerType === "conv2d";
+  const sizeOptions = getLayerSizeOptions(data.layerType, unlockedSkills);
+  const currentSize = isConvLayer ? (data.filters ?? data.units) : data.units;
+  const sizeSliderIndexCandidate = sizeOptions.findIndex((value) => value >= currentSize);
+  const sizeSliderIndex =
+    sizeSliderIndexCandidate === -1 ? sizeOptions.length - 1 : sizeSliderIndexCandidate;
+  const minSize = sizeOptions[0] ?? 1;
+  const maxSize = sizeOptions[sizeOptions.length - 1] ?? 1;
+  const sizeLabel = isConvLayer ? "Filters" : "Units";
   const summaryParts = [
     data.layerType,
-    isUnitsEditable ? `${data.units} units` : null,
+    isUnitsEditable
+      ? `${currentSize} ${isConvLayer ? "filters" : "units"}`
+      : null,
     data.activation ?? "linear",
     data.regularization === "dropout"
       ? `dropout ${data.regularizationRate.toFixed(2)}`
@@ -152,37 +163,61 @@ export function LayerConfigPanel({ selectedNodeId }: Props) {
 
         {isUnitsEditable ? (
           <div className="layer-config__field">
-            <label className="layer-config__label" htmlFor="layer-units">
-              Units
-              <HelpTooltip text="Controls layer width. Larger values can model more patterns, but may be harder to train." />
+            <label className="layer-config__label" htmlFor="layer-size">
+              {sizeLabel}
+              <HelpTooltip
+                text={
+                  isConvLayer
+                    ? "Controls the number of convolution filters. More filters can capture richer image features, but increase model size."
+                    : "Controls layer width. Dense widths unlock in steps up to 2, 4, 6, and 8 units."
+                }
+              />
             </label>
             <div className="layer-config__control-group">
               <input
-                id="layer-units"
+                id="layer-size"
                 type="range"
                 min={0}
-                max={UNIT_OPTIONS.length - 1}
+                max={sizeOptions.length - 1}
                 step={1}
-                value={unitSliderIndex}
+                value={sizeSliderIndex}
                 onChange={(e) =>
-                  updateNodeData(node.id, {
-                    units: UNIT_OPTIONS[Number(e.target.value)] ?? data.units,
-                  })
+                  updateNodeData(
+                    node.id,
+                    isConvLayer
+                      ? {
+                          units: sizeOptions[Number(e.target.value)] ?? currentSize,
+                          filters: sizeOptions[Number(e.target.value)] ?? currentSize,
+                        }
+                      : {
+                          units: sizeOptions[Number(e.target.value)] ?? currentSize,
+                        },
+                  )
                 }
               />
               <div className="layer-config__unit-scale">
-                {UNIT_OPTIONS.map((value) => (
+                {sizeOptions.map((value) => (
                   <span key={value}>{value}</span>
                 ))}
               </div>
               <input
                 className="layer-config__number-input"
                 type="number"
-                value={data.units}
-                min={1}
-                max={512}
+                value={currentSize}
+                min={minSize}
+                max={maxSize}
                 onChange={(e) =>
-                  updateNodeData(node.id, { units: Number(e.target.value) })
+                  updateNodeData(
+                    node.id,
+                    isConvLayer
+                      ? {
+                          units: clampToRange(Number(e.target.value), minSize, maxSize),
+                          filters: clampToRange(Number(e.target.value), minSize, maxSize),
+                        }
+                      : {
+                          units: clampToRange(Number(e.target.value), minSize, maxSize),
+                        },
+                  )
                 }
               />
             </div>

@@ -11,6 +11,7 @@
 
 import * as tf from "@tensorflow/tfjs";
 import type { LayerNodeData, StageDef } from "../types";
+import { deriveSeed } from "./random";
 
 function createRegularizer(regularization: string | null, rate: number) {
   if (regularization === "l1") {
@@ -24,6 +25,21 @@ function createRegularizer(regularization: string | null, rate: number) {
 
 function formatShape(shape: Array<number | null>) {
   return `[${shape.map((dim) => (dim == null ? "batch" : String(dim))).join(", ")}]`;
+}
+
+function createKernelInitializer(
+  activation: string | null | undefined,
+  seed?: number,
+) {
+  if (seed == null) {
+    return undefined;
+  }
+
+  if (activation === "relu" || activation === "gelu") {
+    return tf.initializers.heUniform({ seed });
+  }
+
+  return tf.initializers.glorotUniform({ seed });
 }
 
 function validateOutputShape(model: tf.LayersModel, stage: StageDef) {
@@ -43,6 +59,7 @@ export function buildModel(
   stage: StageDef,
   optimizer: string,
   learningRate: number,
+  seed?: number,
 ): tf.LayersModel {
   const model = tf.sequential();
 
@@ -50,6 +67,8 @@ export function buildModel(
     const layer = layers[i];
     const isFirst = i === 0;
     const kernelRegularizer = createRegularizer(layer.regularization, layer.regularizationRate);
+    const layerSeed = seed == null ? undefined : deriveSeed(seed, i + 1);
+    const kernelInitializer = createKernelInitializer(layer.activation, layerSeed);
 
     switch (layer.layerType) {
       case "dense":
@@ -58,6 +77,7 @@ export function buildModel(
             units: layer.units,
             activation: (layer.activation ?? "linear") as never,
             kernelRegularizer,
+            ...(kernelInitializer ? { kernelInitializer } : {}),
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
@@ -70,6 +90,7 @@ export function buildModel(
             kernelSize: layer.kernelSize ?? 3,
             activation: (layer.activation ?? "relu") as never,
             kernelRegularizer,
+            ...(kernelInitializer ? { kernelInitializer } : {}),
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
@@ -89,20 +110,29 @@ export function buildModel(
             units: layer.units,
             activation: (layer.activation ?? "linear") as never,
             kernelRegularizer,
+            ...(kernelInitializer ? { kernelInitializer } : {}),
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
     }
 
     if (layer.regularization === "dropout" && layer.regularizationRate > 0) {
-      model.add(tf.layers.dropout({ rate: layer.regularizationRate }));
+      model.add(
+        tf.layers.dropout({
+          rate: layer.regularizationRate,
+          ...(layerSeed != null ? { seed: deriveSeed(layerSeed, 1000) } : {}),
+        }),
+      );
     }
   }
 
+  const outputSeed = seed == null ? undefined : deriveSeed(seed, layers.length + 1);
+  const outputInitializer = createKernelInitializer(stage.outputActivation, outputSeed);
   model.add(
     tf.layers.dense({
       units: stage.outputUnits,
       activation: stage.outputActivation as never,
+      ...(outputInitializer ? { kernelInitializer: outputInitializer } : {}),
       ...(layers.length === 0 ? { inputShape: stage.inputShape } : {}),
     }),
   );

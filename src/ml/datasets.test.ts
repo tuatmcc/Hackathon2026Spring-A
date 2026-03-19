@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateSpiralData, generateSinData, getDatasetGenerator } from "./datasets";
+import { generateSpiralData, generateSinData, generateXORData, getDatasetGenerator } from "./datasets";
 
 describe("datasets", () => {
   describe("generateSpiralData", () => {
@@ -157,6 +157,21 @@ describe("datasets", () => {
 
       xs.dispose();
       ys.dispose();
+    });
+  });
+
+  describe("seeded generation", () => {
+    it("同じseedなら同じXORデータを返す", () => {
+      const first = generateXORData(32, 1234);
+      const second = generateXORData(32, 1234);
+
+      expect(Array.from(first.xs.dataSync())).toEqual(Array.from(second.xs.dataSync()));
+      expect(Array.from(first.ys.dataSync())).toEqual(Array.from(second.ys.dataSync()));
+
+      first.xs.dispose();
+      first.ys.dispose();
+      second.xs.dispose();
+      second.ys.dispose();
     });
   });
 });

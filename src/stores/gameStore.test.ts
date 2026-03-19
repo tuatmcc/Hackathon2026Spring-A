@@ -6,7 +6,7 @@ describe("gameStore.resetProgress", () => {
     localStorage.clear();
     useGameStore.setState({
       points: 0,
-      unlockedSkills: ["dense", "relu", "sgd"],
+      unlockedSkills: ["dense", "sigmoid", "sgd"],
       clearedStages: [],
       currentStageIndex: 0,
       currentPage: "play",
@@ -17,7 +17,7 @@ describe("gameStore.resetProgress", () => {
   it("進捗を初期状態に戻す", () => {
     useGameStore.setState({
       points: 320,
-      unlockedSkills: ["dense", "sgd", "relu", "adam"],
+      unlockedSkills: ["dense", "sgd", "sigmoid", "adam"],
       clearedStages: ["stage_linear", "stage_xor"],
       currentStageIndex: 3,
       currentPage: "skillTree",
@@ -28,7 +28,7 @@ describe("gameStore.resetProgress", () => {
 
     const state = useGameStore.getState();
     expect(state.points).toBe(0);
-    expect(state.unlockedSkills).toEqual(["dense", "relu", "sgd"]);
+    expect(state.unlockedSkills).toEqual(["dense", "sigmoid", "sgd"]);
     expect(state.clearedStages).toEqual([]);
     expect(state.currentStageIndex).toBe(0);
     expect(state.currentPage).toBe("play");
@@ -43,7 +43,7 @@ describe("gameStore.resetProgress", () => {
   it("進捗があれば保存あり扱いになる", () => {
     useGameStore.setState({
       points: 100,
-      unlockedSkills: ["dense", "relu", "sgd", "adam"],
+      unlockedSkills: ["dense", "sigmoid", "sgd", "adam"],
       clearedStages: ["stage_linear"],
       currentStageIndex: 1,
     });

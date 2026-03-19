@@ -2,7 +2,8 @@
 // PlayPage — Controller (design-only changes)
 // ============================================================
 
-import { useMemo } from "react";
+import { useEffect, useMemo, type CSSProperties } from "react";
+import { SKILL_DATA } from "../config/skills";
 import { usePlayStore } from "../stores/playStore";
 import { useGameStore } from "../stores/gameStore";
 import { NetworkEditor } from "../components/NetworkEditor";
@@ -10,7 +11,9 @@ import { TrainingPanel } from "../components/TrainingPanel";
 import { DataVisualization } from "../components/DataVisualization";
 import { STAGE_DATA } from "../config/stages";
 import { StageClearPopup, StageIntroPopup } from "../components/GameOverlays";
-import type { CSSProperties } from "react";
+import { formatStageTarget } from "../stageUtils";
+
+const skillNameById = new Map(SKILL_DATA.map((skill) => [skill.id, skill.name]));
 
 export function PlayPage() {
   const {
@@ -23,6 +26,8 @@ export function PlayPage() {
     pendingStageClearId,
     dismissStageClearPopup,
     lastTrainingResult,
+    trainingErrorMessage,
+    syncStageTrainingSettings,
   } = usePlayStore();
 
   const {
@@ -30,6 +35,7 @@ export function PlayPage() {
     seenStageIntroIds,
     markStageIntroSeen,
     setPage,
+    unlockedSkills,
   } = useGameStore();
   const stage = STAGE_DATA[currentStageIndex];
   const clearedStage = useMemo(
@@ -43,10 +49,22 @@ export function PlayPage() {
         : null,
     [pendingStageClearId, seenStageIntroIds, stage],
   );
+  const recommendedLayerLabel = stage?.recommendedLayerTypes
+    ?.map((layerType) => skillNameById.get(layerType) ?? layerType)
+    .join(" + ");
   const failureMessage =
-    stage?.taskType === "regression"
+    trainingErrorMessage ??
+    (stage?.taskType === "regression"
       ? "Loss did not meet the target. Try adjusting your network and learning rate."
-      : "Accuracy did not meet the target. Try adjusting your network.";
+      : "Accuracy did not meet the target. Try adjusting your network.");
+
+  useEffect(() => {
+    if (!stage || pendingStageClearId) {
+      return;
+    }
+
+    syncStageTrainingSettings(stage, unlockedSkills);
+  }, [pendingStageClearId, stage, syncStageTrainingSettings, unlockedSkills]);
 
   const handleCloseIntro = () => {
     if (!activeIntroStage) return;
@@ -83,11 +101,12 @@ export function PlayPage() {
             <div style={stageEyebrowStyle}>Current Mission</div>
             <div style={stageNameStyle}>{stage.name}</div>
             <p style={stageDescStyle}>{stage.description}</p>
-            <div style={stageTargetStyle}>
-              Target: {stage.taskType === "regression"
-                ? `Loss < ${stage.targetLoss?.toFixed(2)}`
-                : `Accuracy > ${(stage.targetAccuracy * 100).toFixed(0)}%`}
-            </div>
+            <div style={stageTargetStyle}>{formatStageTarget(stage)}</div>
+            {recommendedLayerLabel && (
+              <p style={stageMetaStyle}>
+                Recommended Layers: {recommendedLayerLabel}
+              </p>
+            )}
           </div>
         )}
 
@@ -187,6 +206,14 @@ const stageTargetStyle: CSSProperties = {
   border: "1px solid var(--accent-border)",
   display: "inline-block",
 };
+
+const stageMetaStyle: CSSProperties = {
+  marginTop: 10,
+  fontSize: 11,
+  color: "var(--text-muted)",
+  lineHeight: 1.5,
+};
+
 const failureStyle: CSSProperties = {
   padding: 16,
   color: "#d44",

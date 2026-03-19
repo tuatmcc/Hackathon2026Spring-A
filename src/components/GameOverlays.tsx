@@ -1,7 +1,10 @@
 import { useState } from "react";
 import type { TrainResult } from "../ml/trainer";
+import { SKILL_DATA } from "../config/skills";
 import type { StageDef } from "../types";
 import { SteamParticles } from "./SteamParticles";
+
+const skillNameById = new Map(SKILL_DATA.map((skill) => [skill.id, skill.name]));
 
 interface TitleScreenProps {
   hasProgress: boolean;
@@ -203,6 +206,10 @@ export function StageIntroPopup({
   totalStages,
   onClose,
 }: StageIntroPopupProps) {
+  const recommendedLayerLabel = stage.recommendedLayerTypes
+    ?.map((layerType) => skillNameById.get(layerType) ?? layerType)
+    .join(" + ");
+
   return (
     <div className="screen-overlay">
       <div className="screen-panel screen-panel--popup">
@@ -221,6 +228,12 @@ export function StageIntroPopup({
             <span className="stage-popup__label">Reward</span>
             <strong>{stage.rewardPoints} pt</strong>
           </div>
+          {recommendedLayerLabel && (
+            <div>
+              <span className="stage-popup__label">Recommended</span>
+              <strong>{recommendedLayerLabel}</strong>
+            </div>
+          )}
         </div>
 
         <div className="stage-popup__hint">

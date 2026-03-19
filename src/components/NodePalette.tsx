@@ -8,6 +8,7 @@
 // ============================================================
 
 import { SKILL_DATA } from "../config/skills";
+import { isLayerNodeSkill } from "../layerSizeOptions";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
 import { createLayerNode } from "./layerNodeFactory";
@@ -17,7 +18,10 @@ export function NodePalette() {
   const addNode = usePlayStore((s) => s.addNode);
 
   const availableLayers = SKILL_DATA.filter(
-    (s) => s.treeId === "layer" && unlockedSkills.includes(s.id),
+    (s) =>
+      s.treeId === "layer" &&
+      unlockedSkills.includes(s.id) &&
+      isLayerNodeSkill(s.id),
   );
 
   return (
