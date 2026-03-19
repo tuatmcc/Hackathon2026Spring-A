@@ -1,6 +1,11 @@
 // ============================================================
-// メイン画面 (構築・バトルフェーズ)
-// 左: ネットワークエディタ、右上: データ可視化、右下: 学習パネル
+// PlayPage — コントローラ
+//
+// UI と ML をつなぐ唯一の場所。
+// 1. nodes/edges からモデルを構築 (ml/buildModel)
+// 2. データを生成 (ml/datasets)
+// 3. 学習を実行 (ml/trainer)
+// 4. 結果を判定して gameStore を更新
 // ============================================================
 
 import { usePlayStore } from "../stores/playStore";
@@ -9,9 +14,10 @@ import { NetworkEditor } from "../components/NetworkEditor";
 import { TrainingPanel } from "../components/TrainingPanel";
 import { DataVisualization } from "../components/DataVisualization";
 import { STAGE_DATA } from "../config/stages";
-import { buildModelFromGraph } from "../ml/graphToModel";
+import { buildModel } from "../ml/buildModel";
 import { getDatasetGenerator } from "../ml/datasets";
 import { trainModel } from "../ml/trainer";
+import type { LayerNodeData } from "../types";
 
 export function PlayPage() {
   const {
@@ -22,9 +28,13 @@ export function PlayPage() {
     onConnect,
     trainingStatus,
     metrics,
+    selectedOptimizer,
+    learningRate,
+    batchSize,
+    epochs,
     setTrainingStatus,
     addMetrics,
-    resetPlay,
+    // resetPlay, // TODO: ステージ切替時にリセットする
   } = usePlayStore();
 
   const { currentStageIndex, addPoints, clearStage } = useGameStore();
@@ -32,24 +42,38 @@ export function PlayPage() {
 
   const handleStartTraining = async () => {
     if (!stage) return;
-    resetPlay();
+
+    // メトリクスだけリセット（グラフは維持）
     setTrainingStatus("training");
+
     try {
-      const model = buildModelFromGraph(nodes, edges);
+      // 1. nodes → LayerNodeData[] に変換（TODO: トポロジカルソート）
+      const layers: LayerNodeData[] = nodes.map((n) => n.data);
+
+      // 2. モデル構築
+      const model = buildModel(layers, stage, selectedOptimizer, learningRate);
+
+      // 3. データ生成
       const dataset = getDatasetGenerator(stage.datasetId)();
-      const finalLoss = await trainModel(model, dataset, {
-        epochs: 50,
-        learningRate: 0.1,
+
+      // 4. 学習実行
+      const result = await trainModel(model, dataset, {
+        epochs,
+        batchSize,
         onEpochEnd: (m) => addMetrics(m),
       });
-      if (finalLoss <= stage.targetLoss) {
-        clearStage(stage.id); // 自動進行もここで起きる
+
+      // 5. 結果判定
+      const accuracy = result.finalAccuracy ?? 0;
+      if (accuracy >= stage.targetAccuracy) {
+        clearStage(stage.id);
         addPoints(stage.rewardPoints);
         setTrainingStatus("completed");
       } else {
         setTrainingStatus("failed");
       }
-    } catch {
+    } catch (e) {
+      console.error("Training failed:", e);
       setTrainingStatus("failed");
     }
   };
@@ -78,19 +102,16 @@ export function PlayPage() {
       >
         {stage && (
           <div style={{ padding: 16 }}>
-            <h3>
-              {stage.name}: {stage.description}
-            </h3>
+            <h3>{stage.name}</h3>
+            <p style={{ fontSize: 13, color: "#666" }}>{stage.description}</p>
             <p style={{ fontSize: 12, color: "#888" }}>
-              Target Loss: {stage.targetLoss}
+              Target Accuracy: {(stage.targetAccuracy * 100).toFixed(0)}%
             </p>
           </div>
         )}
 
-        {/* 右上: データ可視化 */}
-        <DataVisualization stageId={stage?.id ?? null} />
+        <DataVisualization stage={stage ?? null} />
 
-        {/* 右下: 学習パネル */}
         <TrainingPanel
           trainingStatus={trainingStatus}
           metrics={metrics}
@@ -104,7 +125,7 @@ export function PlayPage() {
         )}
         {trainingStatus === "failed" && (
           <div style={{ padding: 16, color: "#f44336" }}>
-            Loss did not meet the target. Try adjusting your network.
+            Accuracy did not meet the target. Try adjusting your network.
           </div>
         )}
       </div>

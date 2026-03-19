@@ -1,11 +1,11 @@
 // ============================================================
-// メニューオーバーレイ (ステージ選択・設定)
-// ハンバーガーメニューやヘッダーから開く上位階層の画面
+// StageSelectPage — メニューオーバーレイ (ステージ選択)
 // ============================================================
 
 import { STAGE_DATA } from "../config/stages";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
+import { StageCard } from "../components/StageCard";
 
 interface Props {
   onClose: () => void;
@@ -32,33 +32,17 @@ export function MenuOverlay({ onClose }: Props) {
         </div>
 
         <h3 style={{ marginTop: 16 }}>Stage Select</h3>
-        <div className="menu-stage-list">
-          {STAGE_DATA.map((stage, i) => {
-            const cleared = clearedStages.includes(stage.id);
-            const isCurrent = i === currentStageIndex;
-            return (
-              <div
-                key={stage.id}
-                className={`menu-stage-card${isCurrent ? " current" : ""}${cleared ? " cleared" : ""}`}
-              >
-                <div>
-                  <strong>
-                    {stage.name} {cleared && "(Cleared)"} {isCurrent && " <-"}
-                  </strong>
-                  <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
-                    {stage.description}
-                  </div>
-                  <div style={{ fontSize: 12, marginTop: 4 }}>
-                    Target Loss: {stage.targetLoss} | Reward:{" "}
-                    {stage.rewardPoints}pt
-                  </div>
-                </div>
-                <button onClick={() => handleSelect(i)}>
-                  {isCurrent ? "Restart" : "Play"}
-                </button>
-              </div>
-            );
-          })}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {STAGE_DATA.map((stage, i) => (
+            <StageCard
+              key={stage.id}
+              stage={stage}
+              index={i}
+              isCurrent={i === currentStageIndex}
+              isCleared={clearedStages.includes(stage.id)}
+              onSelect={handleSelect}
+            />
+          ))}
         </div>
       </div>
     </div>

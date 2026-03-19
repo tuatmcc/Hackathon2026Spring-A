@@ -1,6 +1,10 @@
 // ============================================================
-// データセット生成 (スタブ)
-// 実装担当者: ここに各ステージ用のデータ生成ロジックを実装
+// データセット生成
+//
+// 【担当者へ】
+// 新しいデータセットを追加するには:
+//   1. generate___Data 関数を書く
+//   2. GENERATORS に登録する
 // ============================================================
 
 import * as tf from "@tensorflow/tfjs";
@@ -12,7 +16,6 @@ export interface Dataset {
 
 /** 線形分離可能なデータ */
 export function generateLinearData(numSamples = 200): Dataset {
-  // TODO: 実装。仮で乱数を返す
   const xs = tf.randomUniform([numSamples, 2], -1, 1);
   const ys = tf.tidy(() => {
     const labels = xs.slice([0, 0], [-1, 1]).greater(0).cast("float32");
@@ -23,7 +26,6 @@ export function generateLinearData(numSamples = 200): Dataset {
 
 /** XOR データ */
 export function generateXORData(numSamples = 200): Dataset {
-  // TODO: 実装。仮で乱数を返す
   const xs = tf.randomUniform([numSamples, 2], -1, 1);
   const ys = tf.tidy(() => {
     const col0 = xs.slice([0, 0], [-1, 1]);
@@ -36,7 +38,6 @@ export function generateXORData(numSamples = 200): Dataset {
 
 /** 円形分離データ */
 export function generateCircleData(numSamples = 200): Dataset {
-  // TODO: 実装。仮で乱数を返す
   const xs = tf.randomUniform([numSamples, 2], -1, 1);
   const ys = tf.tidy(() => {
     const r2 = xs.square().sum(1);
@@ -46,11 +47,19 @@ export function generateCircleData(numSamples = 200): Dataset {
   return { xs, ys };
 }
 
-/** datasetId からジェネレータを引く */
+/** スパイラルデータ — TODO: 実装 */
+export function generateSpiralData(numSamples = 200): Dataset {
+  // スタブ: 円形データで代用
+  return generateCircleData(numSamples);
+}
+
+// ---------- レジストリ ----------
+
 const GENERATORS: Record<string, (n?: number) => Dataset> = {
   linear: generateLinearData,
   xor: generateXORData,
   circle: generateCircleData,
+  spiral: generateSpiralData,
 };
 
 export function getDatasetGenerator(

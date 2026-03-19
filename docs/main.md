@@ -1,293 +1,241 @@
-## 1. システムアーキテクチャ概要
+# アーキテクチャ & 実装ガイド
 
-ゲームの進行状況（永続化）と、各ステージプレイ中の機械学習の推論・学習状態（非永続化）を明確に分離することが設計の要になります。
+## 1. 設計思想
 
-* **フロントエンド:** React 19 (Vite 8)
-* **ノードエディタ:** @xyflow/react (React Flow v12)
-* **機械学習エンジン:** TensorFlow.js (@tensorflow/tfjs)
-* **状態管理:** Zustand (persistミドルウェアを活用)
-* **ページ遷移:** Zustandのステート (`currentPage`) による2タブ切替（React Router は不使用）。ステージ選択はメニューオーバーレイで行う
-* **グラフ描画:** 未導入（Recharts / Chart.js 等を今後導入予定）
+**「各モジュールは自分の隣だけ知っていればいい」**
+
+```
+config/  (静的マスターデータ)  ← 誰でも import できる
+stores/  (Zustand)            ← セーブデータ / プレイ中のグラフ
+ml/      (TF.js)              ← React を知らない。純粋関数
+components/ (React)           ← ML を知らない。表示と操作だけ
+pages/   (React)              ← 薄いページ。配置と接続だけ
+PlayPage                      ← 唯一の「コントローラ」。UI と ML をつなぐ
+```
 
 ---
 
-## 2. プロジェクト構成
+## 2. ファイル構成
 
 ```
 src/
-├── types.ts                 # 共通型定義 (SkillDef, StageDef, GameState, PlayState 等)
+├── types.ts                     # 全モジュールの共通型
 ├── config/
-│   ├── skills.ts            # スキルマスターデータ
-│   └── stages.ts            # ステージマスターデータ
+│   ├── skills.ts                # スキルマスターデータ (4ツリー × 複数スキル)
+│   └── stages.ts                # ステージマスターデータ
 ├── stores/
-│   ├── gameStore.ts         # ゲーム進行ストア (Zustand persist → localStorage)
-│   └── playStore.ts         # プレイ用ストア (メモリのみ)
-├── ml/
-│   ├── datasets.ts          # データセット生成関数 + レジストリ
-│   ├── graphToModel.ts      # React Flow グラフ → tf.LayersModel 変換
-│   └── trainer.ts           # 学習ループ (model.fit ラッパー)
+│   ├── gameStore.ts             # 永続: points, unlockedSkills, clearedStages
+│   └── playStore.ts             # 一時: nodes, edges, 学習条件, 学習状態
+├── ml/                          # React を import しない
+│   ├── buildModel.ts            # LayerNodeData[] + StageDef → tf.LayersModel
+│   ├── datasets.ts              # datasetId → { xs, ys } 生成
+│   └── trainer.ts               # model + dataset → TrainResult
 ├── components/
-│   ├── NetworkEditor.tsx    # React Flow ノードエディタ
-│   ├── TrainingPanel.tsx    # 学習開始ボタン・メトリクス表示
-│   ├── DataVisualization.tsx # データ散布図・決定境界（プレースホルダー）
-│   └── SkillTree.tsx        # スキルツリーUI
+│   ├── NetworkEditor.tsx        # React Flow キャンバス
+│   ├── NodePalette.tsx          # D&D 用パレット (unlockedSkills で制限)
+│   ├── LayerConfigPanel.tsx     # 選択中ノードの設定 (units, activation, reg)
+│   ├── TrainingPanel.tsx        # optimizer, lr, batchSize, epochs, 学習開始
+│   ├── DataVisualization.tsx    # 散布図 + 決定境界
+│   ├── SkillTree.tsx            # 1本のスキルツリーUI
+│   └── StageCard.tsx            # ステージ選択の1枚カード
 ├── pages/
-│   ├── StageSelectPage.tsx  # メニューオーバーレイ（ステージ選択・設定）
-│   ├── PlayPage.tsx         # メイン画面（構築・バトル）
-│   └── SkillTreePage.tsx    # スキルツリー画面
-├── App.tsx                  # ルート（ボトムタブ2画面 + メニューオーバーレイ）
-├── App.css                  # レイアウトCSS
-├── index.css                # グローバルCSS
-└── main.tsx                 # エントリポイント
+│   ├── PlayPage.tsx             # コントローラ: UI → ML → store 更新
+│   ├── SkillTreePage.tsx        # 4本の SkillTree を並べる
+│   └── StageSelectPage.tsx      # メニューオーバーレイ
+├── App.tsx                      # ルート (ヘッダー + 2タブ + メニュー)
+├── App.css
+├── index.css
+└── main.tsx
 ```
 
 ---
 
-## 3. 状態管理設計 (Zustand)
+## 3. データフロー
 
-Zustandのストアを「ゲーム進行用」と「プレイ（ML）用」の2つに分けることで、「ゲーム側のセーブデータのみローカルストレージに保存する」をシンプルに実現しています。
-
-### ゲーム進行ストア (Game Store) — `src/stores/gameStore.ts`
-
-Zustandの `persist` ミドルウェアを使用してローカルストレージに自動保存します（キー名: `nn-game-save`）。
-
-| 状態名 | 型 | 説明 |
-| :--- | :--- | :--- |
-| `points` | `number` | 現在の所持ポイント |
-| `unlockedSkills` | `string[]` | 解放済みのスキルID一覧（初期値: `SKILL_DATA` の `cost === 0` から動的に算出。現在は `['dense_layer', 'relu']`） |
-| `clearedStages` | `string[]` | クリア済みのステージID一覧 |
-| `currentStageIndex` | `number` | 現在挑戦中のステージの添字（`STAGE_DATA` のインデックス）。クリア時に自動で次へ進行する |
-| `currentPage` | `PageId` | 現在表示中のタブ（`"play"` / `"skillTree"`） |
-| `showMenu` | `boolean` | メニューオーバーレイの表示状態（永続化しない） |
-| `unlockSkill` | `(skillId: string) => void` | ポイントを消費してスキルを解放するアクション（コスト・依存関係・重複チェック付き） |
-| `addPoints` | `(amount: number) => void` | ステージクリア時にポイントを追加するアクション |
-| `clearStage` | `(stageId: string) => void` | ステージをクリア済みとして記録し、現在のステージであれば次ステージへ自動進行するアクション |
-| `selectStage` | `(index: number) => void` | メニューから任意のステージに切り替えるアクション（過去ステージ再挑戦用） |
-| `setPage` | `(page: PageId) => void` | タブ切替アクション |
-| `setShowMenu` | `(show: boolean) => void` | メニューオーバーレイの開閉 |
-
-### プレイ用ストア (Play Store) — `src/stores/playStore.ts`
-
-ローカルストレージには保存せず、メモリ上でのみ管理します。`resetPlay()` でステージを離れるたびにリセットします。
-
-モデル (`tf.LayersModel`) はストアには保存せず、学習実行時にその場で構築・破棄します。
-
-| 状態名 | 型 | 説明 |
-| :--- | :--- | :--- |
-| `nodes` | `Node[]` | React Flowのノード情報（配置された層） |
-| `edges` | `Edge[]` | React Flowのエッジ情報（層の接続） |
-| `trainingStatus` | `TrainingStatus` | `"idle"` / `"training"` / `"completed"` / `"failed"` |
-| `metrics` | `TrainingMetrics[]` | Epochごとの `{ epoch, loss, accuracy? }` の履歴配列 |
-| `setNodes` | `(nodes: Node[]) => void` | ノード一括設定 |
-| `setEdges` | `(edges: Edge[]) => void` | エッジ一括設定 |
-| `onNodesChange` | `(changes: NodeChange[]) => void` | React Flow のノード変更ハンドラ（`applyNodeChanges` を使用） |
-| `onEdgesChange` | `(changes: EdgeChange[]) => void` | React Flow のエッジ変更ハンドラ（`applyEdgeChanges` を使用） |
-| `onConnect` | `(connection: Connection) => void` | React Flow の接続ハンドラ（`addEdge` を使用） |
-| `setTrainingStatus` | `(status: TrainingStatus) => void` | 学習状態の更新 |
-| `addMetrics` | `(m: TrainingMetrics) => void` | メトリクスを1エポック分追加 |
-| `resetPlay` | `() => void` | 全状態を初期値にリセット |
-
-※ 現在プレイ中のステージはGame Storeの `currentStageIndex` で管理します。Play Storeはステージ情報を持ちません。
-
----
-
-## 4. データ定義設計 (拡張性の確保)
-
-ステージやスキルを後から簡単に追加・調整できるように、マスターデータとして独立した設定ファイルに定義します。型定義は `src/types.ts` にあります。
-
-### スキル定義 — `src/config/skills.ts`
-
-```typescript
-// src/types.ts
-export interface SkillDef {
-  id: string;
-  name: string;
-  type: "layer" | "activation" | "regularization" | "optimizer";
-  cost: number;           // 解放に必要なポイント。0 = 初期解放
-  dependencies: string[]; // 前提スキルID（必須。なければ空配列）
-  description: string;
-  maxNodes?: number;      // layer 固有: 設定可能な最大ユニット数
-}
 ```
-
-```typescript
-// src/config/skills.ts
-export const SKILL_DATA: SkillDef[] = [
-  {
-    id: 'dense_layer',
-    name: '全結合層 (Dense)',
-    type: 'layer',
-    cost: 0,
-    dependencies: [],
-    maxNodes: 128,
-    description: '基本的なニューラルネットワークの層です。'
-  },
-  {
-    id: 'relu',
-    name: 'ReLU',
-    type: 'activation',
-    cost: 0,
-    dependencies: [],
-    description: '負の値を0にする活性化関数。最も一般的に使われます。'
-  },
-  {
-    id: 'dropout',
-    name: 'Dropout',
-    type: 'regularization',
-    cost: 150,
-    dependencies: ['dense_layer'],
-    description: '過学習を防ぐために、ランダムにノードを無効化します。'
-  },
-  // ... sigmoid, adam 等
-];
-```
-
-### ステージ定義 — `src/config/stages.ts`
-
-ステージ設定には関数への直接参照ではなく、文字列の `datasetId` を持たせ、`src/ml/datasets.ts` のレジストリ (`getDatasetGenerator`) 経由で実行時に解決します。これにより設定データがシリアライズ可能な純粋なデータとして保たれます。
-
-```typescript
-// src/types.ts
-export interface StageDef {
-  id: string;
-  name: string;
-  description: string;
-  datasetId: string;     // datasets.ts のレジストリキー（例: "linear", "xor", "circle"）
-  targetLoss: number;    // クリア条件の Loss しきい値
-  rewardPoints: number;  // クリア報酬ポイント
-}
-```
-
-```typescript
-// src/config/stages.ts
-export const STAGE_DATA: StageDef[] = [
-  {
-    id: 'stage_1_linear',
-    name: '線形分離',
-    description: '直線で2つのデータを分類しよう',
-    datasetId: 'linear',
-    targetLoss: 0.05,
-    rewardPoints: 100
-  },
-  {
-    id: 'stage_2_xor',
-    name: 'XOR問題',
-    description: '非線形なデータを分類しよう。隠れ層が必要になるかも？',
-    datasetId: 'xor',
-    targetLoss: 0.01,
-    rewardPoints: 250
-  },
-  {
-    id: 'stage_3_circle',
-    name: '円形分離',
-    description: '円形に分布するデータを分類しよう',
-    datasetId: 'circle',
-    targetLoss: 0.02,
-    rewardPoints: 300
-  }
-];
+config/skills.ts ─────────────────────┐
+config/stages.ts ──────────────────┐  │
+                                   │  │
+                                   ▼  ▼
+          ┌─── SkillTreePage ← gameStore.unlockedSkills, points
+          │       └── SkillTree (×4) → onUnlock → gameStore.unlockSkill()
+          │
+App ──────┤
+          │
+          └─── PlayPage (コントローラ)
+                 │
+                 ├── NodePalette
+                 │     └── unlockedSkills を見て、使える層だけ表示
+                 │         クリックで Node<LayerNodeData> を追加
+                 │
+                 ├── NetworkEditor
+                 │     └── nodes / edges を表示・編集
+                 │
+                 ├── LayerConfigPanel
+                 │     └── 選択中ノードの units / activation / reg を編集
+                 │         activation/reg の選択肢は unlockedSkills でフィルタ
+                 │
+                 ├── TrainingPanel
+                 │     └── optimizer / lr / batchSize / epochs を編集
+                 │         optimizer の選択肢は unlockedSkills でフィルタ
+                 │         「Start Training」ボタン → onStartTraining
+                 │
+                 ├── DataVisualization
+                 │     └── stage の情報で可視化方法を決定
+                 │
+                 └── handleStartTraining():
+                       nodes.map(n => n.data) → LayerNodeData[]
+                         ↓
+                       buildModel(layers, stage, optimizer, lr)
+                         ↓
+                       trainModel(model, dataset, { epochs, batchSize })
+                         ↓
+                       result.finalAccuracy >= stage.targetAccuracy ?
+                         YES → gameStore.clearStage() + addPoints()
+                         NO  → status = "failed"
 ```
 
 ---
 
-## 5. MLモジュール — `src/ml/`
+## 4. 型定義の概要 (`types.ts`)
 
-### データセット生成 — `datasets.ts`
+### マスターデータ
 
-```typescript
-export interface Dataset {
-  xs: tf.Tensor;
-  ys: tf.Tensor;
-}
+| 型 | 用途 |
+|---|---|
+| `SkillTreeId` | `"layer" \| "activation" \| "optimizer" \| "regularization"` |
+| `SkillDef` | スキル定義: `id`, `treeId`, `name`, `description`, `cost`, `dependencies` |
+| `StageDef` | ステージ定義: データセット、入力形状、タスク種別、最終層、loss関数、クリア条件 |
 
-export function generateLinearData(numSamples?: number): Dataset;
-export function generateXORData(numSamples?: number): Dataset;
-export function generateCircleData(numSamples?: number): Dataset;
+### プレイ中のデータ
 
-/** datasetId からジェネレータ関数を引くレジストリ */
-export function getDatasetGenerator(datasetId: string): (n?: number) => Dataset;
-```
+| 型 | 用途 |
+|---|---|
+| `LayerNodeData` | React Flow Node の `data` に入れるもの: `layerType`, `units`, `activation`, `regularization`, `regularizationRate` |
+| `TrainingMetrics` | epoch ごとの `loss`, `valLoss`, `accuracy`, `valAccuracy` |
+| `TrainingStatus` | `"idle" \| "training" \| "completed" \| "failed"` |
 
-新しいデータセットを追加する場合は、生成関数を作成し `GENERATORS` マップに登録するだけで拡張できます。
+### 設計上のポイント
 
-### グラフ → モデル変換 — `graphToModel.ts`
-
-```typescript
-/** React Flow のノード・エッジから TensorFlow.js モデルを構築する */
-export function buildModelFromGraph(nodes: Node[], edges: Edge[]): tf.LayersModel;
-```
-
-現在はスタブ実装（固定の Dense(8, relu) → Dense(1, sigmoid) を返す）。実装時はノード・エッジをトポロジカルソートし、各ノードの種類に応じた `tf.layers` を積み上げる必要があります。
-
-### 学習ループ — `trainer.ts`
-
-```typescript
-export interface TrainOptions {
-  epochs: number;
-  learningRate: number;
-  onEpochEnd?: (metrics: TrainingMetrics) => void;
-}
-
-/** モデルを学習させ、最終 loss を返す */
-export async function trainModel(
-  model: tf.LayersModel,
-  dataset: Dataset,
-  options: TrainOptions,
-): Promise<number>;
-```
+- **`SkillDef` に `effect` や `build` メソッドはない。** スキルID の存在自体が効果。パレットUIが `unlockedSkills.includes(skillId)` で判定するだけ。
+- **`LayerNodeData` は ML の知識を持たない。** 文字列と数値だけ。`buildModel()` がこれを TF.js に変換する。
+- **`StageDef` がステージ固有の最終層と loss 関数を宣言する。** プレイヤーは隠れ層のみ編集可能。
 
 ---
 
-## 6. 画面構成 (UI/UX)
+## 5. ストア設計
 
-ゲーム画面は **2つのメインタブ**（学習画面 / スキルツリー画面）で構成し、画面下部の大きなタブボタンで切り替えます。ステージ選択は上位階層のメニューオーバーレイで行います。
+### gameStore (永続化 → localStorage `"nn-game-save"`)
 
-### レイアウト構成
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `points` | `number` | 所持ポイント |
+| `unlockedSkills` | `string[]` | 解放済みスキルID。cost=0 のスキルは初期解放 |
+| `clearedStages` | `string[]` | クリア済みステージID |
+| `currentStageIndex` | `number` | 現在挑戦中ステージの添字 |
 
-```
-┌──────────────── Header ─────────────────┐
-│ NN Roguelike  [現在のステージ名]  100pt  [Menu] │
-├─────────────────────────────────────────┤
-│                                         │
-│           メインコンテンツ                │
-│       (PlayPage or SkillTreePage)       │
-│                                         │
-├─────────────────────────────────────────┤
-│     [ Battle ]     [ Skill Tree ]       │  ← ボトムタブ（大きなボタン）
-└─────────────────────────────────────────┘
-```
+### playStore (一時、非永続)
 
-### ステージ進行
-
-* ステージはクリアすると **自動的に次のステージへ進行** します（`clearStage` 内で `currentStageIndex` をインクリメント）。
-* ユーザーがステージを手動で選ぶ必要はありません。常に「現在のステージ」が1つあり、それに挑戦する形です。
-* 過去にクリアしたステージへの再挑戦は、ヘッダーの **Menu ボタン** → メニューオーバーレイ内のステージ選択から行えます。
-
-### メイン画面（構築・バトルフェーズ） — `PlayPage`
-
-* **左ペイン:** `NetworkEditor`（@xyflow/react）を用いたネットワーク構築エリア。解放済みのスキル（ノード）をドラッグ＆ドロップで配置し、つなぎ合わせます。
-* **右ペイン上部:** `DataVisualization` — 現在のデータセット（XORの散布図など）と、学習中の決定境界をリアルタイムで描画します（現在プレースホルダー）。
-* **右ペイン下部:** `TrainingPanel` — 学習曲線（Loss/Accuracy）の折れ線グラフ（現在プレースホルダー）。「学習開始」ボタンとハイパーパラメータ（学習率やエポック数）の調整UIを配置します。
-
-### スキルツリー画面（育成フェーズ） — `SkillTreePage`
-
-* `SkillTree` コンポーネントを表示。RPGのスキルツリーのようなUI。未解放のスキルはグレーアウトさせ、所持ポイントと前提条件を満たしていればクリックで解放（Zustandの `unlockSkill` を発火）できるようにします。
-
-### メニューオーバーレイ — `MenuOverlay` (`StageSelectPage.tsx`)
-
-* ヘッダーの Menu ボタンから開くモーダル形式のオーバーレイです。
-* 全ステージの一覧を表示し、クリア済み・現在挑戦中のステージを視覚的に区別します。
-* 任意のステージを選択して再挑戦（`selectStage`）できます。選択するとプレイ状態がリセットされ、メニューが閉じます。
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `nodes` | `Node<LayerNodeData>[]` | React Flow ノード（プレイヤーが配置した隠れ層） |
+| `edges` | `Edge[]` | React Flow エッジ |
+| `selectedOptimizer` | `string` | `"sgd"` / `"adam"` |
+| `learningRate` | `number` | 学習率 |
+| `batchSize` | `number` | バッチサイズ |
+| `epochs` | `number` | エポック数 |
+| `trainingStatus` | `TrainingStatus` | 学習状態 |
+| `metrics` | `TrainingMetrics[]` | 学習ログ |
 
 ---
 
-## 7. 開発ステップ
+## 6. 担当者別の作業領域
 
-以下の順序でインクリメンタルに実装を進めます。現在の進捗も併記します。
+### A. ネットワークエディタ担当
 
-1. **プロジェクト基盤の構築** — React環境のセットアップと、ZustandのGame Store（Persist付き）およびマスターデータ（Skill/Stage）の定義。**→ 完了**
-2. **UIモックアップの作成** — @xyflow/react を導入し、ノードの配置と接続ができるメイン画面を作成。2タブ構成（Battle / Skill Tree）+ メニューオーバーレイの骨組み。**→ 骨組み完了（プレースホルダー状態）**
-3. **グラフ→モデル変換の実装 (最重要)** — `buildModelFromGraph()`: React Flowのノードとエッジの情報を読み取り、`tf.sequential()` または Functional APIを用いて `tf.LayersModel` に変換するロジック。**→ スタブ実装のみ**
-4. **学習ループの実装** — `trainModel()`: データセットを与え、ブラウザ上でモデルを `model.fit()` させ、Lossの推移を取得する処理。**→ 基本実装済み**
-5. **UIとの結合** — 学習の進捗をチャートに描画し、データ可視化（散布図・決定境界）を実装し、クリア条件を満たしたらポイントを付与するフローを完成させる。**→ フロー自体は接続済み、チャート・可視化はプレースホルダー**
-6. **スキルツリーとやり込み要素の実装** — スキルツリー画面のビジュアル改善、解放したスキルだけがReact Flow上で使えるように制限をかける、ステージやスキルを拡充する。**→ 基本UIのみ**
+**ファイル:** `components/NetworkEditor.tsx`, `components/NodePalette.tsx`, `components/LayerConfigPanel.tsx`
+
+**やること:**
+- [ ] NodePalette: D&D 実装（現在はクリックでノード追加）
+- [ ] カスタムノードの見た目（layerType, units, activation を表示）
+- [ ] エッジ接続のバリデーション（入力→出力の方向制約）
+- [ ] トポロジカルソートのユーティリティ
+
+**依存:** `types.ts` の `LayerNodeData`, `stores/playStore.ts`
+
+### B. ML エンジン担当
+
+**ファイル:** `ml/buildModel.ts`, `ml/datasets.ts`, `ml/trainer.ts`
+
+**やること:**
+- [ ] buildModel: layerType ごとの分岐 (conv2d, flatten)
+- [ ] buildModel: 正則化 (L1/L2 kernelRegularizer)
+- [ ] datasets: spiral データの実装
+- [ ] datasets: MNIST 等の追加データセット
+- [ ] trainer: 学習の中断機能
+
+**依存:** `types.ts` の `LayerNodeData`, `StageDef`, `TrainingMetrics`。React に依存しない。
+
+### C. 可視化担当
+
+**ファイル:** `components/DataVisualization.tsx`, `components/TrainingPanel.tsx` (グラフ部分)
+
+**やること:**
+- [ ] 2D 散布図の描画 (Canvas or SVG)
+- [ ] 決定境界の描画（学習後のモデルから）
+- [ ] 学習曲線グラフ (Recharts / Chart.js)
+- [ ] inputShape に応じた可視化分岐
+
+**依存:** `types.ts` の `StageDef`, `TrainingMetrics`
+
+### D. スキルツリー担当
+
+**ファイル:** `components/SkillTree.tsx`, `pages/SkillTreePage.tsx`
+
+**やること:**
+- [ ] ツリー状のビジュアル配置（依存関係の矢印表示）
+- [ ] スキルカテゴリごとの色分け
+- [ ] アニメーション（アンロック演出）
+
+**依存:** `types.ts` の `SkillDef`, `stores/gameStore.ts`
+
+### E. ゲームバランス / コンテンツ担当
+
+**ファイル:** `config/skills.ts`, `config/stages.ts`
+
+**やること:**
+- [ ] スキルの追加・コスト調整
+- [ ] ステージの追加（新データセット → `datasets.ts` にも登録）
+- [ ] 難易度曲線の調整
+
+**依存:** `types.ts` の `SkillDef`, `StageDef`
+
+---
+
+## 7. スキルとモデル構成要素の対応
+
+スキルの「効果」を型で定義する必要はない。スキルIDがそのまま ML 構成要素の識別子と対応する。
+
+| スキルID (= `SkillDef.id`) | 何に対応するか | 誰がチェックするか |
+|---|---|---|
+| `"dense"`, `"conv2d"`, `"flatten"` | `LayerNodeData.layerType` | NodePalette（表示制限） |
+| `"relu"`, `"sigmoid"`, `"gelu"` | `LayerNodeData.activation` | LayerConfigPanel（選択肢フィルタ） |
+| `"sgd"`, `"adam"` | `playStore.selectedOptimizer` | TrainingPanel（選択肢フィルタ） |
+| `"dropout"`, `"l1"`, `"l2"` | `LayerNodeData.regularization` | LayerConfigPanel（選択肢フィルタ） |
+
+フィルタは全て `unlockedSkills.includes(skillId)` だけで行う。
+
+---
+
+## 8. ステージが固定するもの
+
+`gameScreen.md` の仕様に基づき、以下はステージ定義 (`StageDef`) で固定され、プレイヤーは変更できない:
+
+| 項目 | StageDef のフィールド |
+|---|---|
+| 最終層のユニット数 | `outputUnits` |
+| 最終層の活性化関数 | `outputActivation` |
+| Loss 関数 | `lossFunction` |
+| 入力の形状 | `inputShape` |
+
+`buildModel()` がこれらを使って最終層を追加し、`model.compile()` を行う。

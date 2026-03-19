@@ -1,106 +1,59 @@
-# ニューラルネットワーク 育成？ローグライク？スキルツリー？ゲーム
+# NN Roguelike — ニューラルネットワーク育成ゲーム
 
-## 1. 技術スタック
-* **Frontend**: React (Vite)
-* **UI / Diagram**: React Flow (ネットワーク構造の可視化・構築)
-* **ML Engine**: TensorFlow.js
-* **State Management**: Zustand (ゲーム進捗・スキルツリー・永続化)
-* **Storage**: LocalStorage (via Zustand persist middleware)
+スキルツリーで ML の構成要素（層、活性化関数、オプティマイザ、正則化）を解放し、
+解放したスキルだけを使って Toy Problem を解くブラウザゲーム。
 
----
+## セットアップ
 
-## 2. システムアーキテクチャ
-
-ゲームは大きく分けて「メタ進捗（スキル・ステージ）」と「実行コンテキスト（学習・推論）」の2層に分かれます。
-
-### A. 状態管理 (Zustand)
-`useGameStore` で以下のデータを一括管理します。
-* **Player Data**: 現在のポイント、所持スキルIDリスト、クリア済みステージID。
-* **Master Data**: スキル定義、ステージ定義（後から注入可能）。
-* **Active Session**: 現在選択中のステージ、現在のモデル構成。
-
-### B. 画面構成
-1.  **Skill Tree View**:
-    * React Flow等を利用し、スキルの依存関係を可視化。
-    * ポイントを消費して `DenseLayer` や `Dropout` をアンロック。
-2.  **Lab (Main) View**:
-    * **Editor**: React Flowで層をドラッグ＆ドロップして接続。
-    * **Monitor**: 学習カーブ（Loss/Accuracy）とデータプロット（予測境界）のリアルタイム表示。
-
----
-
-## 3. データ構造の定義 (拡張性の確保)
-
-### スキル定義 (Skills)
-各レイヤーや関数をユニットとして定義します。
-```typescript
-{
-  id: "conv2d",
-  name: "畳み込み層",
-  description: "空間的な特徴を抽出します。",
-  cost: 500,
-  dependsOn: ["dense"], // 前提スキル
-  tfConfig: { /* TF.jsのレイヤー生成用パラメータ */ }
-}
+```bash
+npm install
+npm run dev
 ```
 
-### ステージ定義 (Stages)
-タスクの難易度と報酬を設定します。
-```typescript
-{
-  id: "xor-problem",
-  title: "XORの壁",
-  type: "classification",
-  dataset: "xor", // 生成関数を指定
-  difficulty: 2,
-  reward: 200,
-  threshold: 0.01, // クリア条件 (Lossがこれ以下)
-  constraints: { maxLayers: 3 } // 制限事項
-}
+## 技術スタック
+
+| カテゴリ | 技術 |
+|---|---|
+| 言語 | TypeScript |
+| UI | React 19 (Vite 8) |
+| ネットワークエディタ | @xyflow/react (React Flow v12) |
+| ML エンジン | TensorFlow.js |
+| 状態管理 | Zustand (persist → localStorage) |
+
+## アーキテクチャ
+
+```
+config/  ← 静的マスターデータ（スキル、ステージ）
+stores/  ← Zustand（セーブデータ / プレイ中のグラフ）
+ml/      ← 純粋関数（React を知らない）
+components/ ← React UI（ML を知らない）
+pages/   ← ページ（配置と接続）
+PlayPage ← 唯一のコントローラ（UI と ML をつなぐ）
 ```
 
----
+詳細は `docs/main.md` を参照。
 
-## 4. 開発ロードマップ
+## 保存データ
 
-### Phase 1: コアエンジンの構築
-* [ ] Zustandによる基本ストアの作成とLocalStorage連携。
-* [ ] TensorFlow.jsを用いた「データ生成 → モデル構築 → 学習ループ」の最小実装。
-* [ ] 線形分離タスクでのテスト。
-
-### Phase 2: React Flowによるエディタ
-* [ ] ノード（層）を追加・接続するUIの実装。
-* [ ] React Flowのグラフ構造をTensorFlow.jsの `tf.sequential` または `tf.model` に変換するロジックの実装。
-
-### Phase 3: ゲーム性の実装
-* [ ] スキルツリー画面の作成。
-* [ ] ステージクリア判定と報酬付与サイクル。
-* [ ] スイスロールやMNISTなどのデータセットジェネレータの追加。
-
-### Phase 4: ブラッシュアップ
-* [ ] 学習中の予測境界（Decision Boundary）の Canvas 描画。
-* [ ] スキル・ステージデータの外部JSON化。
-
----
-
-## 5. 保存データについて
-LocalStorageには以下の「進捗」のみを保存します。重みなどのバイナリデータは保存せず、ステージ開始ごとに「一からの学習」を強いることで、ローグライクなゲーム体験（構成の妙を楽しむ）を強調します。
+localStorage に進捗のみ保存。モデルの重みは保存しない。
 
 ```json
 {
-  "version": "1.0",
   "points": 1250,
-  "unlockedSkillIds": ["dense", "relu", "adam"],
-  "completedStageIds": ["linear-01", "xor-01"]
+  "unlockedSkills": ["dense", "relu", "sgd", "adam"],
+  "clearedStages": ["stage_linear", "stage_xor"],
+  "currentStageIndex": 2
 }
 ```
 
----
+## 開発の進め方
 
-## 6. 実装のヒント
+担当領域ごとに独立して開発可能。詳細は `docs/main.md` の「担当者別の作業領域」を参照。
 
-### React Flow から TF.js への変換
-React Flowの `edges` を辿り、トポロジカルソートを行うことで、層の重なりを決定します。
-
-
-
+| 担当 | 主なファイル | 依存する型 |
+|---|---|---|
+| エディタ | `components/NetworkEditor.tsx`, `NodePalette.tsx`, `LayerConfigPanel.tsx` | `LayerNodeData` |
+| ML エンジン | `ml/buildModel.ts`, `datasets.ts`, `trainer.ts` | `LayerNodeData`, `StageDef` |
+| 可視化 | `components/DataVisualization.tsx`, `TrainingPanel.tsx` (グラフ) | `StageDef`, `TrainingMetrics` |
+| スキルツリー | `components/SkillTree.tsx`, `pages/SkillTreePage.tsx` | `SkillDef` |
+| コンテンツ | `config/skills.ts`, `config/stages.ts` | `SkillDef`, `StageDef` |

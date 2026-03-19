@@ -1,77 +1,73 @@
 // ============================================================
-// 共通型定義
+// 共通型定義 — 全モジュールの「共通言語」
 // ============================================================
 
-import type { Node, Edge, NodeChange, EdgeChange, Connection } from "@xyflow/react";
+// ---------- スキルツリー (マスターデータ) ----------
 
-// ---------- マスターデータ ----------
+/** スキルツリーの種別。画面上で4本のツリーとして表示される */
+export type SkillTreeId =
+  | "layer"
+  | "activation"
+  | "optimizer"
+  | "regularization";
 
-/** スキル（層・活性化関数・正則化など）のマスターデータ */
+/** スキル定義 — ゲームバランスの関心事のみ。ML の build 方法は含まない */
 export interface SkillDef {
   id: string;
+  treeId: SkillTreeId;
   name: string;
-  type: "layer" | "activation" | "regularization" | "optimizer";
-  cost: number; // 解放に必要なポイント。0 = 初期解放
-  dependencies: string[]; // 前提スキルID
   description: string;
-  /** layer 固有: 設定可能な最大ユニット数 */
-  maxNodes?: number;
+  cost: number; // 0 = 初期解放
+  dependencies: string[]; // 前提スキルID（なければ空配列）
 }
 
-/** ステージのマスターデータ */
+// ---------- ステージ (マスターデータ) ----------
+
 export interface StageDef {
   id: string;
   name: string;
   description: string;
-  /** データセットを生成する関数の識別子 */
+  /** datasets.ts のレジストリキー */
   datasetId: string;
-  /** クリア条件の Loss しきい値 */
-  targetLoss: number;
-  /** クリア報酬ポイント */
+  /** 入力テンソルの形状。[2] = 2D特徴量, [28,28,1] = 画像 */
+  inputShape: number[];
+  taskType: "binary" | "multiclass" | "regression";
+  /** ステージが固定する最終層 */
+  outputUnits: number;
+  outputActivation: string; // "sigmoid" | "softmax" | "linear"
+  lossFunction: string; // "binaryCrossentropy" | "categoricalCrossentropy" | "meanSquaredError"
+  /** クリア条件: validation accuracy がこれ以上 */
+  targetAccuracy: number;
   rewardPoints: number;
 }
 
-// ---------- ストア ----------
+// ---------- プレイ中のノードデータ ----------
 
-/** ゲーム進行ストアの状態 */
-export interface GameState {
-  points: number;
-  unlockedSkills: string[];
-  clearedStages: string[];
-  /** 現在挑戦中のステージIndex (STAGE_DATA の添字) */
-  currentStageIndex: number;
-  unlockSkill: (skillId: string) => void;
-  addPoints: (amount: number) => void;
-  /** ステージクリア → clearedStages に追加し、次ステージへ自動進行 */
-  clearStage: (stageId: string) => void;
-  /** メニューから任意のステージに切り替える（過去ステージ再挑戦用） */
-  selectStage: (index: number) => void;
+/** React Flow の Node.data に入れるもの。「見た目の情報」 */
+export interface LayerNodeData {
+  /** 層の種類。スキルID と一致する ("dense" | "conv2d" | "flatten") */
+  layerType: string;
+  /** ユニット数 */
+  units: number;
+  /** 活性化関数。スキルID と一致する ("relu" | "sigmoid" | null) */
+  activation: string | null;
+  /** 正則化。スキルID と一致する ("dropout" | "l1" | "l2" | null) */
+  regularization: string | null;
+  regularizationRate: number;
+  [key: string]: unknown; // React Flow 互換
 }
 
-/** 学習指標 */
+// ---------- 学習 ----------
+
 export interface TrainingMetrics {
   epoch: number;
   loss: number;
+  valLoss?: number;
   accuracy?: number;
+  valAccuracy?: number;
 }
 
 export type TrainingStatus = "idle" | "training" | "completed" | "failed";
-
-/** プレイ用ストアの状態 */
-export interface PlayState {
-  nodes: Node[];
-  edges: Edge[];
-  trainingStatus: TrainingStatus;
-  metrics: TrainingMetrics[];
-  setNodes: (nodes: Node[]) => void;
-  setEdges: (edges: Edge[]) => void;
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
-  onConnect: (connection: Connection) => void;
-  setTrainingStatus: (status: TrainingStatus) => void;
-  addMetrics: (m: TrainingMetrics) => void;
-  resetPlay: () => void;
-}
 
 // ---------- ルーティング ----------
 
