@@ -124,6 +124,167 @@ body {
   background: #8f8f8f;
 }
 
+.layer-config-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  text-align: left;
+  background:
+    linear-gradient(180deg, rgba(170, 59, 255, 0.05) 0%, rgba(170, 59, 255, 0.01) 100%);
+}
+
+.layer-config__header {
+  padding: 10px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.layer-config__summary {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.layer-config__section {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.layer-config__section-title,
+.layer-config__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.layer-config__section-title {
+  margin-bottom: 0;
+}
+
+.layer-config__field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.layer-config__field + .layer-config__field {
+  margin-top: 8px;
+}
+
+.layer-config__control-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.layer-config__control-group--inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 10px;
+}
+
+.layer-config__unit-scale {
+  display: none;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  color: var(--text);
+  font-size: 11px;
+}
+
+.layer-config__unit-scale span:last-child {
+  text-align: right;
+}
+
+.layer-config__number-input,
+.layer-config__select {
+  width: auto;
+  min-width: 88px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.layer-config__label {
+  min-width: 68px;
+  flex-shrink: 0;
+}
+
+.layer-config__field input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.layer-config__hint {
+  grid-column: 2;
+  margin-top: 0;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.layer-config__tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+}
+
+.layer-config__tooltip-bubble {
+  position: fixed;
+  z-index: 20;
+  width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--text-h);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+}
+
+.layer-config__tooltip-bubble[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 @media (prefers-color-scheme: dark) {
   .network-layer-node {
     border-color: #5a5a5a;
@@ -143,6 +304,53 @@ body {
   .network-layer-node__handle {
     border-color: #1a1a1a;
     background: #9a9a9a;
+  }
+
+  .layer-config-panel {
+    background:
+      linear-gradient(180deg, rgba(192, 132, 252, 0.1) 0%, rgba(192, 132, 252, 0.02) 100%);
+  }
+
+  .layer-config__header,
+  .layer-config__section,
+  .layer-config__number-input,
+  .layer-config__select {
+    background: #1d1f27;
+  }
+
+  .layer-config__tooltip-bubble {
+    border-color: #464a57;
+    background: #f3f4f6;
+    color: #16171d;
+  }
+}
+
+@media (max-width: 900px) {
+  .layer-config__section {
+    grid-template-columns: 1fr;
+  }
+
+  .layer-config__hint {
+    grid-column: 1;
+  }
+
+  .layer-config__field {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .layer-config__control-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .layer-config__label {
+    min-width: 0;
+  }
+
+  .layer-config__number-input,
+  .layer-config__select {
+    width: 100%;
   }
 }
 
