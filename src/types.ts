@@ -54,6 +54,10 @@ export interface LayerNodeData {
   /** 正則化。スキルID と一致する ("dropout" | "l1" | "l2" | null) */
   regularization: string | null;
   regularizationRate: number;
+  /** conv2d用: フィルタ数 */
+  filters?: number;
+  /** conv2d用: カーネルサイズ */
+  kernelSize?: number;
   [key: string]: unknown; // React Flow 互換
 }
 

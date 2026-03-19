@@ -1,0 +1,83 @@
+import { describe, it, expect } from "vitest";
+import * as tf from "@tensorflow/tfjs-node";
+import { generateSpiralData } from "./datasets";
+
+describe("datasets", () => {
+  describe("generateSpiralData", () => {
+    it("正しい形状のテンソルを返す", () => {
+      const { xs, ys } = generateSpiralData(100);
+
+      expect(xs.shape).toEqual([100, 2]);
+      expect(ys.shape).toEqual([100, 1]);
+
+      xs.dispose();
+      ys.dispose();
+    });
+
+    it("2つのクラスが含まれている", () => {
+      const { xs, ys } = generateSpiralData(200);
+
+      const labels = ys.dataSync();
+      const uniqueLabels = new Set(labels);
+
+      expect(uniqueLabels.size).toBe(2);
+      expect(uniqueLabels.has(0)).toBe(true);
+      expect(uniqueLabels.has(1)).toBe(true);
+
+      xs.dispose();
+      ys.dispose();
+    });
+
+    it("クラスのバランスが取れている", () => {
+      const { xs, ys } = generateSpiralData(200);
+
+      const labels = ys.dataSync();
+      let count0 = 0;
+      let count1 = 0;
+      for (let i = 0; i < labels.length; i++) {
+        if (labels[i] === 0) count0++;
+        else count1++;
+      }
+
+      expect(count0).toBe(100);
+      expect(count1).toBe(100);
+
+      xs.dispose();
+      ys.dispose();
+    });
+
+    it("螺旋形状のデータである（外側の点は半径が大きい）", () => {
+      const { xs, ys } = generateSpiralData(200);
+
+      const data = xs.dataSync();
+      const labels = ys.dataSync();
+
+      const pointsClass0: number[][] = [];
+      const pointsClass1: number[][] = [];
+
+      for (let i = 0; i < 200; i++) {
+        const x = data[i * 2];
+        const y = data[i * 2 + 1];
+        const label = labels[i];
+
+        if (label === 0) {
+          pointsClass0.push([x, y]);
+        } else {
+          pointsClass1.push([x, y]);
+        }
+      }
+
+      expect(pointsClass0.length).toBe(100);
+      expect(pointsClass1.length).toBe(100);
+
+      const r0Max = Math.max(...pointsClass0.map(([x, y]) => Math.sqrt(x * x + y * y)));
+      const r1Max = Math.max(...pointsClass1.map(([x, y]) => Math.sqrt(x * x + y * y)));
+
+      expect(r0Max).toBeGreaterThan(0.5);
+      expect(r1Max).toBeGreaterThan(0.5);
+
+      xs.dispose();
+      ys.dispose();
+    });
+  });
+});
