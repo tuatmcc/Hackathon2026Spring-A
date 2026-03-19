@@ -1,9 +1,22 @@
+/// <reference types="node" />
+/**
+ * @vitest-environment node
+ */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as tf from "@tensorflow/tfjs";
 import { buildModel } from "./buildModel";
 import { getDatasetGenerator } from "./datasets";
+import { deriveSeed } from "./random";
 import { trainModel } from "./trainer";
 import type { LayerNodeData, StageDef } from "../types";
+
+function createTrialSeeds(seed: number) {
+  return {
+    dataset: deriveSeed(seed, 1),
+    model: deriveSeed(seed, 2),
+    training: deriveSeed(seed, 3),
+  };
+}
 
 describe("ML統合テスト", () => {
   beforeEach(() => {
@@ -30,16 +43,18 @@ describe("ML統合テスト", () => {
     };
 
     it("隠れ層1つでXORを学習できる", async () => {
+      const seeds = createTrialSeeds(101);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
-      const model = buildModel(layers, stage, "adam", 0.1);
-      const dataset = getDatasetGenerator("xor")(200);
+      const model = buildModel(layers, stage, "adam", 0.1, seeds.model);
+      const dataset = getDatasetGenerator("xor")(200, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalLoss).toBeLessThan(0.5);
@@ -51,17 +66,19 @@ describe("ML統合テスト", () => {
     });
 
     it("隠れ層2つでXORをより良く学習できる", async () => {
+      const seeds = createTrialSeeds(102);
       const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 8, activation: "relu", regularization: null, regularizationRate: 0 },
-        { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
-      const model = buildModel(layers, stage, "adam", 0.01);
-      const dataset = getDatasetGenerator("xor")(200);
+      const model = buildModel(layers, stage, "adam", 0.01, seeds.model);
+      const dataset = getDatasetGenerator("xor")(200, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 100,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalLoss).toBeLessThan(0.5);
@@ -89,17 +106,19 @@ describe("ML統合テスト", () => {
     };
 
     it("円形データを分類できる", async () => {
+      const seeds = createTrialSeeds(201);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 8, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
-      const model = buildModel(layers, stage, "adam", 0.01);
-      const dataset = getDatasetGenerator("circle")(300);
+      const model = buildModel(layers, stage, "adam", 0.01, seeds.model);
+      const dataset = getDatasetGenerator("circle")(300, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 100,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalAccuracy).toBeGreaterThan(0.8);
@@ -126,18 +145,20 @@ describe("ML統合テスト", () => {
     };
 
     it("スパイラルデータを深いネットワークで分類できる", async () => {
+      const seeds = createTrialSeeds(301);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 64, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
-      const model = buildModel(layers, stage, "adam", 0.01);
-      const dataset = getDatasetGenerator("spiral")(500);
+      const model = buildModel(layers, stage, "adam", 0.01, seeds.model);
+      const dataset = getDatasetGenerator("spiral")(500, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 100,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalAccuracy).toBeGreaterThan(0.7);
@@ -148,19 +169,21 @@ describe("ML統合テスト", () => {
     });
 
     it("dropout正則化で過学習を防げる", async () => {
+      const seeds = createTrialSeeds(302);
       const layersWithDropout: LayerNodeData[] = [
         { layerType: "dense", units: 64, activation: "relu", regularization: "dropout", regularizationRate: 0.3 },
         { layerType: "dense", units: 32, activation: "relu", regularization: "dropout", regularizationRate: 0.3 },
         { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
 
-      const model = buildModel(layersWithDropout, stage, "adam", 0.01);
-      const dataset = getDatasetGenerator("spiral")(500);
+      const model = buildModel(layersWithDropout, stage, "adam", 0.01, seeds.model);
+      const dataset = getDatasetGenerator("spiral")(500, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 100,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalAccuracy).toBeGreaterThan(0.6);
@@ -187,18 +210,20 @@ describe("ML統合テスト", () => {
     };
 
     it("L2正則化が適用されたモデルを学習できる", async () => {
+      const seeds = createTrialSeeds(401);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 32, activation: "relu", regularization: "l2", regularizationRate: 0.01 },
         { layerType: "dense", units: 16, activation: "relu", regularization: "l2", regularizationRate: 0.01 },
       ];
 
-      const model = buildModel(layers, stage, "adam", 0.01);
-      const dataset = getDatasetGenerator("spiral")(300);
+      const model = buildModel(layers, stage, "adam", 0.01, seeds.model);
+      const dataset = getDatasetGenerator("spiral")(300, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalLoss).toBeTypeOf("number");
@@ -226,17 +251,19 @@ describe("ML統合テスト", () => {
     };
 
     it("epochごとのメトリクスを取得できる", async () => {
+      const seeds = createTrialSeeds(501);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 8, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
-      const model = buildModel(layers, stage, "adam", 0.1);
-      const dataset = getDatasetGenerator("xor")(100);
+      const model = buildModel(layers, stage, "adam", 0.1, seeds.model);
+      const dataset = getDatasetGenerator("xor")(100, seeds.dataset);
 
       const metrics: { loss: number; accuracy: number }[] = [];
       await trainModel(model, dataset, {
         epochs: 5,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
         onEpochEnd: (m) => {
           metrics.push({
             loss: m.loss,
@@ -275,19 +302,21 @@ describe("ML統合テスト", () => {
     };
 
     it("Dense層でsin関数を近似できる", async () => {
+      const seeds = createTrialSeeds(601);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
 
-      const model = buildModel(layers, stage, "adam", 0.01);
-      const dataset = getDatasetGenerator("sin")(500);
+      const model = buildModel(layers, stage, "adam", 0.01, seeds.model);
+      const dataset = getDatasetGenerator("sin")(500, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 100,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalLoss).toBeLessThan(0.2);
@@ -298,6 +327,7 @@ describe("ML統合テスト", () => {
     });
 
     it("深いネットワークでより精度よく近似できる", async () => {
+      const seeds = createTrialSeeds(602);
       const layers: LayerNodeData[] = [
         { layerType: "dense", units: 64, activation: "relu", regularization: null, regularizationRate: 0 },
         { layerType: "dense", units: 64, activation: "relu", regularization: null, regularizationRate: 0 },
@@ -305,13 +335,14 @@ describe("ML統合テスト", () => {
         { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
       ];
 
-      const model = buildModel(layers, stage, "adam", 0.005);
-      const dataset = getDatasetGenerator("sin")(500);
+      const model = buildModel(layers, stage, "adam", 0.005, seeds.model);
+      const dataset = getDatasetGenerator("sin")(500, seeds.dataset);
 
       const result = await trainModel(model, dataset, {
         epochs: 150,
         batchSize: 32,
         validationSplit: 0,
+        seed: seeds.training,
       });
 
       expect(result.finalLoss).toBeLessThan(0.1);

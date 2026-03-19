@@ -1,4 +1,5 @@
 import * as tf from "@tensorflow/tfjs";
+import { createSeededRandom, type RandomSource } from "./random";
 
 export interface Dataset {
   xs: tf.Tensor;
@@ -15,18 +16,23 @@ interface DigitsJSON {
   labels: number[];
 }
 
-function rand(min: number, max: number): number {
-  return Math.random() * (max - min) + min;
+function rand(
+  min: number,
+  max: number,
+  random: RandomSource = Math.random,
+): number {
+  return random() * (max - min) + min;
 }
 
 /** 線形分離可能なデータ */
-export function generateLinearData(numSamples = 200): Dataset {
+export function generateLinearData(numSamples = 200, seed?: number): Dataset {
+  const random = seed == null ? Math.random : createSeededRandom(seed);
   const xsData: number[] = [];
   const ysData: number[] = [];
 
   for (let i = 0; i < numSamples; i++) {
-    const x = rand(-1, 1);
-    const y = rand(-1, 1);
+    const x = rand(-1, 1, random);
+    const y = rand(-1, 1, random);
     xsData.push(x, y);
     ysData.push(x > 0 ? 1 : 0);
   }
@@ -38,13 +44,14 @@ export function generateLinearData(numSamples = 200): Dataset {
 }
 
 /** XOR データ */
-export function generateXORData(numSamples = 200): Dataset {
+export function generateXORData(numSamples = 200, seed?: number): Dataset {
+  const random = seed == null ? Math.random : createSeededRandom(seed);
   const xsData: number[] = [];
   const ysData: number[] = [];
 
   for (let i = 0; i < numSamples; i++) {
-    const x = rand(-1, 1);
-    const y = rand(-1, 1);
+    const x = rand(-1, 1, random);
+    const y = rand(-1, 1, random);
     xsData.push(x, y);
     const label = (x > 0) !== (y > 0) ? 1 : 0;
     ysData.push(label);
@@ -57,13 +64,14 @@ export function generateXORData(numSamples = 200): Dataset {
 }
 
 /** 円形分離データ */
-export function generateCircleData(numSamples = 200): Dataset {
+export function generateCircleData(numSamples = 200, seed?: number): Dataset {
+  const random = seed == null ? Math.random : createSeededRandom(seed);
   const xsData: number[] = [];
   const ysData: number[] = [];
 
   for (let i = 0; i < numSamples; i++) {
-    const x = rand(-1, 1);
-    const y = rand(-1, 1);
+    const x = rand(-1, 1, random);
+    const y = rand(-1, 1, random);
     xsData.push(x, y);
     const r2 = x * x + y * y;
     ysData.push(r2 < 0.5 ? 1 : 0);
@@ -102,12 +110,13 @@ export function generateSpiralData(numSamples = 200): Dataset {
 }
 
 /** y = sin(πx) 関数近似用データ（回帰） */
-export function generateSinData(numSamples = 200): Dataset {
+export function generateSinData(numSamples = 200, seed?: number): Dataset {
+  const random = seed == null ? Math.random : createSeededRandom(seed);
   const xsData: number[] = [];
   const ysData: number[] = [];
 
   for (let i = 0; i < numSamples; i++) {
-    const x = rand(-1, 1);
+    const x = rand(-1, 1, random);
     xsData.push(x);
     ysData.push(Math.sin(Math.PI * x));
   }
@@ -142,7 +151,7 @@ export async function loadDigitsData(): Promise<Dataset> {
 
 // ---------- レジストリ ----------
 
-const GENERATORS: Record<string, (n?: number) => Dataset> = {
+const GENERATORS: Record<string, (n?: number, seed?: number) => Dataset> = {
   linear: generateLinearData,
   xor: generateXORData,
   circle: generateCircleData,
@@ -156,7 +165,7 @@ const ASYNC_LOADERS: Record<string, DatasetLoader> = {
 
 export function getDatasetGenerator(
   datasetId: string,
-): (n?: number) => Dataset {
+): (n?: number, seed?: number) => Dataset {
   const gen = GENERATORS[datasetId];
   if (!gen) throw new Error(`Unknown dataset: ${datasetId}`);
   return gen;

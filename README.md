@@ -40,7 +40,7 @@ localStorage に進捗のみ保存。モデルの重みは保存しない。
 ```json
 {
   "points": 1250,
-  "unlockedSkills": ["dense", "relu", "sgd", "adam"],
+  "unlockedSkills": ["dense", "sigmoid", "sgd", "adam"],
   "clearedStages": ["stage_linear", "stage_xor"],
   "currentStageIndex": 2
 }

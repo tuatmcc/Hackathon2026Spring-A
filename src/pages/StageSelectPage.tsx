@@ -3,6 +3,7 @@
 // ============================================================
 
 import { STAGE_DATA } from "../config/stages";
+import { getUnlockedStageCount } from "../stageProgress";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
 import { StageCard } from "../components/StageCard";
@@ -16,6 +17,8 @@ interface Props {
 export function MenuOverlay({ onClose, onBackToTitle, onOpenTutorial }: Props) {
   const { clearedStages, currentStageIndex, selectStage } = useGameStore();
   const { resetPlay } = usePlayStore();
+  const unlockedStageCount = getUnlockedStageCount(STAGE_DATA, clearedStages);
+  const visibleStages = STAGE_DATA.slice(0, unlockedStageCount);
 
   const handleSelect = (index: number) => {
     resetPlay();
@@ -43,7 +46,7 @@ export function MenuOverlay({ onClose, onBackToTitle, onOpenTutorial }: Props) {
 
         <h3 style={{ marginTop: 16 }}>Stage Select</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {STAGE_DATA.map((stage, i) => (
+          {visibleStages.map((stage, i) => (
             <StageCard
               key={stage.id}
               stage={stage}
