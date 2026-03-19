@@ -20,6 +20,7 @@ function App() {
     unlockedSkills,
     hasSeenTutorial,
     markTutorialSeen,
+    resetProgress,
     hasHydrated,
   } = useGameStore();
   const [showTitleScreen, setShowTitleScreen] = useState(true);
@@ -113,6 +114,7 @@ function App() {
           totalStages={STAGE_DATA.length}
           onStart={handleEnterGame}
           onOpenTutorial={handleOpenTutorial}
+          onReset={resetProgress}
         />
       )}
 

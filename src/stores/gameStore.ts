@@ -108,6 +108,8 @@ export const useGameStore = create<GameStore>()(
       resetProgress: () =>
         set({
           ...initialProgressState,
+          hasSeenTutorial: false,
+          seenStageIntroIds: [],
           currentPage: "play",
           showMenu: false,
         }),

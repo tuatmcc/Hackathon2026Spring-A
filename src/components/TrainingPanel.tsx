@@ -1,9 +1,5 @@
 // ============================================================
-// TrainingPanel — 学習条件の設定 + 学習開始 + メトリクス表示
-//
-// 【担当者へ】
-// optimizer の選択肢は unlockedSkills でフィルタ。
-// 学習曲線グラフは TODO (Recharts / Chart.js 等)。
+// TrainingPanel — Steampunk-themed training controls + metrics
 // ============================================================
 
 import type { CSSProperties } from "react";
@@ -16,12 +12,13 @@ import {
   getStageTargetLabel,
 } from "../stageUtils";
 import type { TrainingMetrics, TrainingStatus } from "../types";
+import { SteamParticles } from "./SteamParticles";
 
 const CHART_WIDTH = 100;
 const CHART_HEIGHT = 56;
-const TRAIN_LINE_COLOR = "#6b6375";
-const VALIDATION_LINE_COLOR = "var(--accent)";
-const TARGET_LINE_COLOR = "#4caf50";
+const TRAIN_LINE_COLOR = "#b87333";
+const VALIDATION_LINE_COLOR = "#b58921";
+const TARGET_LINE_COLOR = "#3fb950";
 
 export function TrainingPanel() {
   const currentStageIndex = useGameStore((s) => s.currentStageIndex);
@@ -79,8 +76,8 @@ export function TrainingPanel() {
     <section style={panelStyle}>
       <div style={headerStyle}>
         <div>
-          <div style={eyebrowStyle}>Training</div>
-          <strong>Optimizer & Progress</strong>
+          <div style={eyebrowStyle}>Engine Control</div>
+          <strong style={{ color: "var(--text-h)", fontSize: 14 }}>Training</strong>
         </div>
         <div style={statusPill(trainingStatus)}>{statusLabel(trainingStatus)}</div>
       </div>
@@ -145,9 +142,17 @@ export function TrainingPanel() {
           void startTraining();
         }}
         disabled={trainingStatus === "training"}
-        style={startButtonStyle(trainingStatus === "training")}
+        style={startButtonStyle(trainingStatus)}
       >
-        {trainingStatus === "training" ? "Training..." : "Start Training"}
+        {trainingStatus === "training" && (
+          <SteamParticles active kind="sparks" count={15} duration={0} />
+        )}
+        <span style={startButtonInnerStyle}>
+          {trainingStatus === "training" ? "Engine Running..." : "Ignite"}
+        </span>
+        {trainingStatus === "training" && (
+          <div style={progressStripeStyle} />
+        )}
       </button>
 
       <div style={metricsRowStyle}>
@@ -169,7 +174,7 @@ export function TrainingPanel() {
 
       <div style={chartShellStyle}>
         <div style={chartHeaderStyle}>
-          <strong>{chartTitle}</strong>
+          <strong style={{ color: "var(--brass)" }}>{chartTitle}</strong>
           {stage && targetValue != null && (
             <span style={targetStyle}>
               {getStageTargetLabel(stage)} {formatStageTargetValue(stage)}
@@ -191,7 +196,7 @@ export function TrainingPanel() {
                   y1={valueToY(tick, chartMaxValue)}
                   x2={CHART_WIDTH}
                   y2={valueToY(tick, chartMaxValue)}
-                  stroke="var(--border)"
+                  stroke="rgba(181, 137, 33, 0.12)"
                   strokeWidth={0.5}
                 />
               ))}
@@ -230,7 +235,7 @@ export function TrainingPanel() {
           </>
         ) : (
           <div style={chartPlaceholderStyle}>
-            学習を開始すると{isRegressionTask ? "損失" : "精度"}カーブがここに表示されます。
+            {isRegressionTask ? "Start training to see the loss curve." : "Start training to see the accuracy curve."}
           </div>
         )}
       </div>
@@ -242,7 +247,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div style={metricCardStyle}>
       <span style={metricLabelStyle}>{label}</span>
-      <strong>{value}</strong>
+      <strong style={{ color: "var(--brass)", fontSize: 14 }}>{value}</strong>
     </div>
   );
 }
@@ -362,7 +367,8 @@ function statusLabel(trainingStatus: TrainingStatus) {
 
 const panelStyle: CSSProperties = {
   padding: 16,
-  background: "var(--bg)",
+  background: "var(--bg-surface)",
+  borderTop: "1px solid var(--border)",
 };
 
 const headerStyle: CSSProperties = {
@@ -374,10 +380,11 @@ const headerStyle: CSSProperties = {
 };
 
 const eyebrowStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 9,
   textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  color: "var(--accent)",
+  letterSpacing: "0.18em",
+  fontWeight: 800,
+  color: "var(--brass)",
   marginBottom: 4,
 };
 
@@ -390,7 +397,7 @@ const controlsGridStyle: CSSProperties = {
 const controlStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 6,
+  gap: 4,
   textAlign: "left",
   fontSize: 12,
 };
@@ -398,34 +405,64 @@ const controlStyle: CSSProperties = {
 const controlLabelStyle: CSSProperties = {
   color: "var(--text)",
   textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  fontSize: 11,
+  letterSpacing: "0.1em",
+  fontSize: 9,
+  fontWeight: 800,
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--border)",
-  background: "var(--bg)",
-  color: "var(--text-h)",
+  padding: "8px 10px",
+  border: "2px solid var(--accent-border)",
+  background: "#000",
+  color: "var(--brass)",
+  fontWeight: 700,
+  fontSize: 12,
 };
 
-function startButtonStyle(disabled: boolean): CSSProperties {
+function startButtonStyle(status: TrainingStatus): CSSProperties {
+  const isRunning = status === "training";
   return {
     width: "100%",
-    marginTop: 12,
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "none",
-    background: disabled ? "var(--border)" : "var(--accent)",
-    color: "#fff",
-    fontWeight: 700,
-    boxShadow: disabled ? "none" : "var(--shadow)",
-    cursor: disabled ? "progress" : "pointer",
+    marginTop: 14,
+    padding: 0,
+    border: isRunning ? "3px solid #d44" : "3px solid var(--rust)",
+    background: isRunning ? "#600" : "var(--brass)",
+    color: isRunning ? "#fff" : "#000",
+    fontWeight: 800,
+    fontSize: 13,
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    cursor: isRunning ? "progress" : "pointer",
+    boxShadow: isRunning ? "0 0 20px rgba(221, 68, 68, 0.2)" : "4px 4px 0 rgba(0,0,0,0.4)",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    overflow: "hidden",
+    position: "relative",
+    animation: isRunning ? "engine-rumble 0.15s linear infinite" : "none",
   };
 }
+
+const startButtonInnerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  padding: "14px 20px",
+  position: "relative",
+  zIndex: 2,
+};
+
+const progressStripeStyle: CSSProperties = {
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 4,
+  background: "repeating-linear-gradient(90deg, rgba(181, 137, 33, 0.4), rgba(181, 137, 33, 0.4) 10px, transparent 10px, transparent 20px)",
+  backgroundSize: "40px 4px",
+  animation: "progress-stripe 0.6s linear infinite",
+};
 
 const metricsRowStyle: CSSProperties = {
   display: "grid",
@@ -439,25 +476,25 @@ const metricCardStyle: CSSProperties = {
   flexDirection: "column",
   gap: 4,
   padding: "10px 12px",
-  borderRadius: 12,
   border: "1px solid var(--border)",
-  background: "var(--accent-bg)",
+  background: "rgba(181, 137, 33, 0.04)",
   textAlign: "left",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
 };
 
 const metricLabelStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 9,
   textTransform: "uppercase",
-  letterSpacing: "0.08em",
+  letterSpacing: "0.12em",
+  fontWeight: 800,
   color: "var(--text)",
 };
 
 const chartShellStyle: CSSProperties = {
   marginTop: 14,
   padding: 12,
-  borderRadius: 16,
-  border: "1px solid var(--border)",
-  background: "linear-gradient(180deg, var(--accent-bg), var(--bg))",
+  border: "2px solid var(--border)",
+  background: "#000",
 };
 
 const chartHeaderStyle: CSSProperties = {
@@ -466,11 +503,11 @@ const chartHeaderStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: 8,
   marginBottom: 10,
-  fontSize: 13,
+  fontSize: 12,
 };
 
 const targetStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 10,
   color: TARGET_LINE_COLOR,
   fontWeight: 700,
 };
@@ -478,19 +515,18 @@ const targetStyle: CSSProperties = {
 const chartSvgStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  height: 156,
+  height: 140,
 };
 
 const chartPlaceholderStyle: CSSProperties = {
-  minHeight: 156,
-  borderRadius: 12,
+  minHeight: 140,
   border: "1px dashed var(--accent-border)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   color: "var(--text)",
-  fontSize: 12,
-  background: "var(--accent-bg)",
+  fontSize: 11,
+  background: "rgba(181, 137, 33, 0.03)",
   textAlign: "center",
   padding: 16,
   boxSizing: "border-box",
@@ -500,7 +536,7 @@ const legendStyle: CSSProperties = {
   display: "flex",
   gap: 14,
   marginTop: 10,
-  fontSize: 12,
+  fontSize: 11,
   color: "var(--text)",
 };
 
@@ -513,40 +549,40 @@ const legendItemStyle: CSSProperties = {
 const legendDotStyle: CSSProperties = {
   width: 10,
   height: 10,
-  borderRadius: 999,
 };
 
 function statusPill(trainingStatus: TrainingStatus): CSSProperties {
   const palette =
     trainingStatus === "completed"
       ? {
-          color: "#1a6c47",
-          background: "rgba(39, 176, 110, 0.12)",
-          border: "rgba(39, 176, 110, 0.24)",
+          color: "#3fb950",
+          background: "rgba(63, 185, 80, 0.1)",
+          border: "rgba(63, 185, 80, 0.3)",
         }
       : trainingStatus === "failed"
         ? {
-            color: "#9d531a",
-            background: "rgba(238, 125, 31, 0.12)",
-            border: "rgba(238, 125, 31, 0.22)",
+            color: "#d44",
+            background: "rgba(221, 68, 68, 0.08)",
+            border: "rgba(221, 68, 68, 0.25)",
           }
         : trainingStatus === "training"
           ? {
-              color: "var(--accent)",
-              background: "var(--accent-bg)",
+              color: "var(--brass)",
+              background: "rgba(181, 137, 33, 0.1)",
               border: "var(--accent-border)",
             }
           : {
               color: "var(--text)",
-              background: "var(--bg)",
+              background: "transparent",
               border: "var(--border)",
             };
 
   return {
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 700,
+    padding: "5px 10px",
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
     color: palette.color,
     background: palette.background,
     border: `1px solid ${palette.border}`,
