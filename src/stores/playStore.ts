@@ -59,6 +59,7 @@ interface PlayStore {
   nextTrainingRunId: number;
   lastTrainingResult: TrainResult | null;
   pendingStageClearId: string | null;
+  pendingStageClearRewardPoints: number;
   configuredStageId: string | null;
   trainingErrorMessage: string | null;
 
@@ -105,6 +106,7 @@ const initialState = {
   nextTrainingRunId: 0,
   lastTrainingResult: null as TrainResult | null,
   pendingStageClearId: null as string | null,
+  pendingStageClearRewardPoints: 0,
   configuredStageId: null as string | null,
   trainingErrorMessage: null as string | null,
 };
@@ -215,6 +217,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         nextState.activeTrainingRunId = null;
         nextState.lastTrainingResult = null;
         nextState.pendingStageClearId = null;
+        nextState.pendingStageClearRewardPoints = 0;
         nextState.trainingErrorMessage = null;
       }
 
@@ -239,6 +242,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       metrics: initialState.metrics,
       lastTrainingResult: initialState.lastTrainingResult,
       pendingStageClearId: initialState.pendingStageClearId,
+      pendingStageClearRewardPoints: initialState.pendingStageClearRewardPoints,
       trainingErrorMessage: initialState.trainingErrorMessage,
     }),
   beginTrainingRun: () => {
@@ -251,7 +255,11 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   },
   isTrainingRunCurrent: (runId: number) =>
     get().activeTrainingRunId === runId,
-  dismissStageClearPopup: () => set({ pendingStageClearId: null }),
+  dismissStageClearPopup: () =>
+    set({
+      pendingStageClearId: null,
+      pendingStageClearRewardPoints: 0,
+    }),
   startTraining: async () => {
     const { currentStageIndex, addPoints, clearStage } = useGameStore.getState();
     const stage = STAGE_DATA[currentStageIndex];
@@ -292,6 +300,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         activeTrainingRunId: null,
         lastTrainingResult: null,
         pendingStageClearId: null,
+        pendingStageClearRewardPoints: 0,
         trainingErrorMessage: "Failed to prepare the dataset.",
       });
       return;
@@ -354,12 +363,16 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
           : (result.finalAccuracy ?? 0) >= stage.targetAccuracy;
 
       if (cleared) {
-        clearStage(stage.id);
-        addPoints(stage.rewardPoints);
+        const rewardGranted = clearStage(stage.id);
+        const awardedPoints = rewardGranted ? stage.rewardPoints : 0;
+        if (awardedPoints > 0) {
+          addPoints(awardedPoints);
+        }
         set({
           trainingStatus: "completed",
           lastTrainingResult: result,
           pendingStageClearId: stage.id,
+          pendingStageClearRewardPoints: awardedPoints,
           trainingErrorMessage: null,
         });
       } else {
@@ -367,6 +380,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
           trainingStatus: "failed",
           lastTrainingResult: result,
           pendingStageClearId: null,
+          pendingStageClearRewardPoints: 0,
           trainingErrorMessage: null,
         });
       }
@@ -377,6 +391,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
           trainingStatus: "failed",
           lastTrainingResult: null,
           pendingStageClearId: null,
+          pendingStageClearRewardPoints: 0,
           trainingErrorMessage:
             error instanceof Error ? error.message : "Training failed.",
         });
