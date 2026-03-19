@@ -17,6 +17,7 @@ export interface SkillDef {
   treeId: SkillTreeId;
   name: string;
   description: string;
+  detail: string;
   cost: number; // 0 = 初期解放
   dependencies: string[]; // 前提スキルID（なければ空配列）
 }
