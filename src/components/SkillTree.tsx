@@ -154,7 +154,7 @@ export function SkillTree({
                 ref={setSkillRef(skill.id)}
                 onClick={() => onSkillClick?.(skill.id)}
                 style={{
-                  border: "1px solid",
+                  border: "2.5px solid",
                   borderColor: isUnlocked(skill.id) ? "#4caf50" : "#666",
                   borderRadius: 8,
                   padding: 8,

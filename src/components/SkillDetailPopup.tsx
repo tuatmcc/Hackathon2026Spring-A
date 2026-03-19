@@ -19,7 +19,7 @@ export function SkillDetailPopup({ skill, onClose }: Props) {
         background: "#fff",
         border: "1px solid #ccc",
         borderRadius: 8,
-        padding: 42,
+        padding: 48,
         boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
         zIndex: 1000,
       }}
