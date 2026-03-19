@@ -1,5 +1,6 @@
 import type { TrainResult } from "../ml/trainer";
 import type { StageDef } from "../types";
+import { SteamParticles } from "./SteamParticles";
 
 interface TitleScreenProps {
   hasProgress: boolean;
@@ -202,20 +203,21 @@ export function StageClearPopup({
   onOpenSkillTree,
 }: StageClearPopupProps) {
   return (
-    <div className="screen-overlay">
+    <div className="screen-overlay" style={{ position: "fixed" }}>
+      <SteamParticles active kind="celebration" count={60} duration={4000} />
       <div className="screen-panel screen-panel--popup">
-        <div className="screen-kicker">Stage Clear</div>
-        <h2 className="screen-subtitle">{stage.name} cleared</h2>
+        <div className="screen-kicker" style={{ animation: "fade-in 0.3s ease" }}>Stage Clear</div>
+        <h2 className="screen-subtitle" style={{ animation: "stamp-in 0.6s cubic-bezier(0.22, 1, 0.36, 1)" }}>{stage.name} cleared</h2>
         <p className="screen-body">{stage.clearMessage ?? stage.description}</p>
 
         <div className="stage-popup__meta">
-          <div>
+          <div style={{ animation: "slide-in-left 0.4s ease 0.2s backwards" }}>
             <span className="stage-popup__label">Result</span>
             <strong>{formatStageResult(stage, result)}</strong>
           </div>
-          <div>
+          <div style={{ animation: "slide-in-right 0.4s ease 0.3s backwards" }}>
             <span className="stage-popup__label">Reward</span>
-            <strong>+{stage.rewardPoints} pt</strong>
+            <strong style={{ animation: "count-up-glow 1s ease 0.5s backwards" }}>+{stage.rewardPoints} pt</strong>
           </div>
         </div>
 

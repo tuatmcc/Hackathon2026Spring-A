@@ -1,13 +1,11 @@
 // ============================================================
-// SkillTree — 1本のスキルツリーUI
-//
-// 【担当者へ】
-// treeId でフィルタされた SkillDef[] を受け取り、
-// ツリー状に表示する。依存関係の矢印表示等は TODO。
+// SkillTree — Steampunk-themed skill tree UI
 // ============================================================
 
 import { useRef, useState, useLayoutEffect, useCallback } from "react";
+import type { CSSProperties } from "react";
 import type { SkillDef } from "../types";
+import { SteamParticles } from "./SteamParticles";
 
 function groupByLevel(skills: SkillDef[]): SkillDef[][] {
   const levels = new Map<string, number>();
@@ -56,6 +54,7 @@ export function SkillTree({
   const containerRef = useRef<HTMLDivElement>(null);
   const skillRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [positions, setPositions] = useState<Map<string, DOMRect>>(new Map());
+  const [justUnlocked, setJustUnlocked] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     const containerRect = containerRef.current?.getBoundingClientRect();
@@ -82,6 +81,12 @@ export function SkillTree({
     points >= skill.cost &&
     skill.dependencies.every((d) => unlockedSkills.includes(d));
 
+  const handleUnlock = (skillId: string) => {
+    onUnlock(skillId);
+    setJustUnlocked(skillId);
+    setTimeout(() => setJustUnlocked(null), 1500);
+  };
+
   const levels = groupByLevel(skills);
 
   const containerRect = containerRef.current?.getBoundingClientRect();
@@ -107,8 +112,8 @@ export function SkillTree({
   };
 
   return (
-    <div ref={containerRef} style={{ padding: 8, position: "relative" }}>
-      <h4 style={{ marginBottom: 8 }}>{title}</h4>
+    <div ref={containerRef} style={treeContainerStyle}>
+      <div style={treeTitleStyle}>{title}</div>
       <svg
         style={{
           position: "absolute",
@@ -122,14 +127,14 @@ export function SkillTree({
       >
         <defs>
           <marker
-            id="arrowhead"
+            id="arrowhead-brass"
             markerWidth="10"
             markerHeight="7"
             refX="9"
             refY="3.5"
             orient="auto"
           >
-            <polygon points="0 0, 10 3.5, 0 7" fill="#888" />
+            <polygon points="0 0, 10 3.5, 0 7" fill="#8b4513" />
           </marker>
         </defs>
         {getLines().map((line, i) => (
@@ -139,55 +144,203 @@ export function SkillTree({
             y1={line.y1}
             x2={line.x2}
             y2={line.y2}
-            stroke="#888"
+            stroke="#8b4513"
             strokeWidth="2"
-            markerEnd="url(#arrowhead)"
+            markerEnd="url(#arrowhead-brass)"
           />
         ))}
       </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 94, position: "relative", zIndex: 2 }}>
+      <div style={levelsContainerStyle}>
         {levels.map((levelSkills) => (
-          <div key={levelSkills[0]?.id} style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            {levelSkills.map((skill) => (
-              <div
-                key={skill.id}
-                ref={setSkillRef(skill.id)}
-                onClick={() => onSkillClick?.(skill.id)}
-                style={{
-                  border: "2.5px solid",
-                  borderColor: isUnlocked(skill.id) ? "#4caf50" : "#666",
-                  borderRadius: 8,
-                  padding: 8,
-                  opacity: isUnlocked(skill.id) ? 1 : 0.6,
-                  background: isUnlocked(skill.id) ? "#e8f5e9" : "transparent",
-                  minWidth: 120,
-                  cursor: "pointer",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                }}
-              >
-                <strong style={{ fontSize: 13, color: isUnlocked(skill.id) ? "#1b5e20" : "#333" }}>{skill.name}</strong>
-                <div style={{ fontSize: 11, color: isUnlocked(skill.id) ? "#2e7d32" : "#888", marginTop: 2 }}>
-                  {skill.description}
-                </div>
-                {skill.cost > 0 && (
-                  <div style={{ fontSize: 11, marginTop: 2 }}>
-                    Cost: {skill.cost}pt
+          <div key={levelSkills[0]?.id} style={tierStyle}>
+            {levelSkills.map((skill) => {
+              const unlocked = isUnlocked(skill.id);
+              const canBuy = canUnlock(skill);
+              const flashing = justUnlocked === skill.id;
+              return (
+                <div
+                  key={skill.id}
+                  ref={setSkillRef(skill.id)}
+                  onClick={() => onSkillClick?.(skill.id)}
+                  style={{
+                    ...nodeStyle,
+                    ...(unlocked ? unlockedNodeStyle : lockedNodeStyle),
+                    ...(flashing ? flashStyle : {}),
+                    ...(unlocked && !flashing ? unlockedIdleStyle : {}),
+                  }}
+                >
+                  {flashing && (
+                    <SteamParticles active kind="unlock" count={25} duration={1200} />
+                  )}
+                  {!unlocked && (
+                    <div style={lockIconStyle}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#b58921" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    </div>
+                  )}
+                  <strong style={{
+                    fontSize: 12,
+                    color: unlocked ? "#3fb950" : "var(--text-h)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}>
+                    {skill.name}
+                  </strong>
+                  <div style={{
+                    fontSize: 10,
+                    color: unlocked ? "#2d8a44" : "var(--text)",
+                    marginTop: 2,
+                    lineHeight: 1.4,
+                  }}>
+                    {skill.description}
                   </div>
-                )}
-                {!isUnlocked(skill.id) && (
-                  <button
-                    onClick={() => onUnlock(skill.id)}
-                    disabled={!canUnlock(skill)}
-                    style={{ marginTop: 4, fontSize: 11 }}
-                  >
-                    UnLock
-                  </button>
-                )}
-              </div>
-            ))}
+                  {skill.cost > 0 && !unlocked && (
+                    <div style={costStyle}>Cost: {skill.cost}pt</div>
+                  )}
+                  {unlocked ? (
+                    <div style={unlockedBadgeStyle}>Unlocked</div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUnlock(skill.id);
+                      }}
+                      disabled={!canBuy}
+                      style={unlockButtonStyle(canBuy)}
+                    >
+                      Unlock
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+const treeContainerStyle: CSSProperties = {
+  padding: 12,
+  position: "relative",
+  minWidth: 260,
+};
+
+const treeTitleStyle: CSSProperties = {
+  background: "var(--iron)",
+  color: "var(--brass)",
+  padding: "8px 16px",
+  fontWeight: 800,
+  border: "2px solid var(--brass)",
+  textAlign: "center",
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  fontSize: 11,
+  marginBottom: 48,
+};
+
+const levelsContainerStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 80,
+  position: "relative",
+  zIndex: 2,
+};
+
+const tierStyle: CSSProperties = {
+  display: "flex",
+  gap: 12,
+  justifyContent: "center",
+};
+
+const nodeStyle: CSSProperties = {
+  width: 200,
+  padding: 12,
+  textAlign: "center",
+  position: "relative",
+  cursor: "pointer",
+  border: "2px solid",
+  boxShadow: "4px 4px 0 var(--iron)",
+  transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+  overflow: "hidden",
+};
+
+const unlockedNodeStyle: CSSProperties = {
+  borderColor: "#3fb950",
+  background: "rgba(63, 185, 80, 0.08)",
+  boxShadow: "4px 4px 0 rgba(63, 185, 80, 0.3)",
+};
+
+const unlockedIdleStyle: CSSProperties = {
+  animation: "border-pulse-green 3s ease-in-out infinite",
+};
+
+const lockedNodeStyle: CSSProperties = {
+  borderColor: "var(--border)",
+  background: "var(--bg-surface)",
+  backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)",
+  opacity: 0.85,
+};
+
+const flashStyle: CSSProperties = {
+  animation: "pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
+  borderColor: "#5adb78",
+  boxShadow: "0 0 20px rgba(63, 185, 80, 0.4), 4px 4px 0 rgba(63, 185, 80, 0.5)",
+};
+
+const lockIconStyle: CSSProperties = {
+  position: "absolute",
+  top: -10,
+  right: -10,
+  background: "var(--iron)",
+  border: "2px solid var(--brass)",
+  borderRadius: "50%",
+  width: 26,
+  height: 26,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 5,
+};
+
+const costStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "var(--rust)",
+  marginTop: 4,
+};
+
+const unlockedBadgeStyle: CSSProperties = {
+  marginTop: 6,
+  padding: "3px 8px",
+  fontSize: 9,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  color: "#3fb950",
+  border: "1px solid rgba(63, 185, 80, 0.3)",
+  background: "rgba(63, 185, 80, 0.08)",
+  display: "inline-block",
+};
+
+function unlockButtonStyle(canBuy: boolean): CSSProperties {
+  return {
+    marginTop: 6,
+    padding: "4px 12px",
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    border: canBuy ? "2px solid var(--brass)" : "1px solid var(--border)",
+    background: canBuy ? "var(--brass)" : "transparent",
+    color: canBuy ? "#000" : "var(--text)",
+    cursor: canBuy ? "pointer" : "not-allowed",
+    opacity: canBuy ? 1 : 0.5,
+    transition: "all 0.15s",
+    width: "100%",
+    boxSizing: "border-box",
+  };
 }

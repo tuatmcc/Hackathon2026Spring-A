@@ -34,16 +34,16 @@ export interface DigitsSampleItem {
   isCorrect: boolean | null;
 }
 
-const POSITIVE_COLOR = [170, 59, 255] as const;
-const NEGATIVE_COLOR = [104, 113, 150] as const;
-const CORRECT_COLOR = "#12704c";
-const INCORRECT_COLOR = "#ab4d1f";
-const DIGITS_CARD_BACKGROUND = "#0f1420";
-const DIGITS_CARD_FOREGROUND = "#f5f7ff";
-const DIGITS_PREDICTED_COLOR = "var(--accent)";
+const POSITIVE_COLOR = [181, 137, 33] as const;
+const NEGATIVE_COLOR = [80, 72, 58] as const;
+const CORRECT_COLOR = "#3fb950";
+const INCORRECT_COLOR = "#d44";
+const DIGITS_CARD_BACKGROUND = "#111";
+const DIGITS_CARD_FOREGROUND = "#dcd0b9";
+const DIGITS_PREDICTED_COLOR = "#b58921";
 const DIGITS_TRUTH_COLOR = CORRECT_COLOR;
-const REGRESSION_LINE_COLOR = "var(--accent)";
-const REGRESSION_TARGET_COLOR = "#687196";
+const REGRESSION_LINE_COLOR = "#b58921";
+const REGRESSION_TARGET_COLOR = "#b87333";
 const VIEWBOX_SIZE = 100;
 const DIGITS_VIEWBOX_SIZE = 8;
 const DEFAULT_DOMAIN: VisualizationDomain = {
@@ -879,7 +879,7 @@ const panelStyle: CSSProperties = {
   padding: 16,
   borderTop: "1px solid var(--border)",
   borderBottom: "1px solid var(--border)",
-  background: "var(--bg)",
+  background: "var(--bg-surface)",
 };
 
 const headerStyle: CSSProperties = {
@@ -891,10 +891,11 @@ const headerStyle: CSSProperties = {
 };
 
 const eyebrowStyle: CSSProperties = {
-  fontSize: 11,
-  letterSpacing: "0.12em",
+  fontSize: 9,
+  letterSpacing: "0.18em",
   textTransform: "uppercase",
-  color: "var(--accent)",
+  fontWeight: 800,
+  color: "var(--brass)",
   marginBottom: 4,
 };
 
@@ -910,25 +911,24 @@ const metricCardStyle: CSSProperties = {
   flexDirection: "column",
   gap: 4,
   padding: "10px 12px",
-  borderRadius: 12,
-  background: "var(--accent-bg)",
   border: "1px solid var(--border)",
+  background: "rgba(181, 137, 33, 0.04)",
   textAlign: "left",
 };
 
 const metricLabelStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 9,
   textTransform: "uppercase",
-  letterSpacing: "0.1em",
+  letterSpacing: "0.12em",
+  fontWeight: 800,
   color: "var(--text)",
 };
 
 const surfaceFrameStyle: CSSProperties = {
   overflow: "hidden",
-  borderRadius: 18,
-  border: "1px solid var(--border)",
-  background: "linear-gradient(180deg, var(--accent-bg) 0%, var(--bg) 100%)",
-  boxShadow: "var(--shadow)",
+  border: "3px solid var(--brass)",
+  background: "#000",
+  boxShadow: "inset 0 0 12px rgba(181, 137, 33, 0.08), 4px 4px 0 rgba(0,0,0,0.3)",
 };
 
 const surfaceSvgStyle: CSSProperties = {
@@ -950,9 +950,8 @@ const digitPreviewCardStyle: CSSProperties = {
   flexDirection: "column",
   gap: 10,
   padding: 14,
-  borderRadius: 16,
-  border: "1px solid rgba(255, 255, 255, 0.08)",
-  background: "rgba(15, 20, 32, 0.96)",
+  border: "2px solid var(--border)",
+  background: DIGITS_CARD_BACKGROUND,
   color: DIGITS_CARD_FOREGROUND,
 };
 
@@ -964,17 +963,20 @@ const digitCardHeaderStyle: CSSProperties = {
 };
 
 const digitIndexStyle: CSSProperties = {
-  fontSize: 11,
-  letterSpacing: "0.08em",
+  fontSize: 10,
+  letterSpacing: "0.1em",
   textTransform: "uppercase",
-  color: "rgba(245, 247, 255, 0.72)",
+  fontWeight: 800,
+  color: "var(--brass)",
 };
 
 const digitLabelChipStyle: CSSProperties = {
   padding: "2px 7px",
-  borderRadius: 999,
-  background: "rgba(255, 255, 255, 0.1)",
-  fontSize: 11,
+  background: "rgba(181, 137, 33, 0.15)",
+  border: "1px solid rgba(181, 137, 33, 0.3)",
+  fontSize: 10,
+  fontWeight: 700,
+  color: "var(--brass)",
 };
 
 const digitPreviewSvgStyle: CSSProperties = {
@@ -983,16 +985,16 @@ const digitPreviewSvgStyle: CSSProperties = {
   maxWidth: 260,
   alignSelf: "center",
   aspectRatio: "1 / 1",
-  borderRadius: 12,
   imageRendering: "pixelated",
-  boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
+  border: "2px solid var(--brass)",
 };
 
 const digitMetaStyle: CSSProperties = {
   display: "grid",
   gap: 4,
-  fontSize: 12,
-  color: "rgba(245, 247, 255, 0.86)",
+  fontSize: 11,
+  fontWeight: 700,
+  color: "var(--text)",
 };
 
 const digitsConfidenceCardStyle: CSSProperties = {
@@ -1000,9 +1002,8 @@ const digitsConfidenceCardStyle: CSSProperties = {
   flexDirection: "column",
   gap: 12,
   padding: 14,
-  borderRadius: 16,
-  border: "1px solid rgba(255, 255, 255, 0.08)",
-  background: "rgba(255, 255, 255, 0.04)",
+  border: "1px solid var(--border)",
+  background: "rgba(255, 255, 255, 0.02)",
 };
 
 const digitsConfidenceHeaderStyle: CSSProperties = {
@@ -1010,12 +1011,12 @@ const digitsConfidenceHeaderStyle: CSSProperties = {
   alignItems: "baseline",
   justifyContent: "space-between",
   gap: 8,
-  color: "var(--text)",
+  color: "var(--text-h)",
 };
 
 const digitsConfidenceHintStyle: CSSProperties = {
-  fontSize: 12,
-  color: "rgba(107, 99, 117, 0.88)",
+  fontSize: 10,
+  color: "var(--text)",
 };
 
 const digitsConfidenceListStyle: CSSProperties = {
@@ -1031,36 +1032,36 @@ const digitsConfidenceRowStyle: CSSProperties = {
 };
 
 const digitsConfidenceLabelStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: "var(--text)",
+  fontSize: 11,
+  fontWeight: 800,
+  color: "var(--brass)",
 };
 
 const digitsConfidenceTrackStyle: CSSProperties = {
   position: "relative",
-  height: 10,
-  borderRadius: 999,
-  background: "rgba(107, 99, 117, 0.12)",
+  height: 8,
+  background: "rgba(181, 137, 33, 0.1)",
   overflow: "hidden",
 };
 
 const digitsConfidenceValueStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: 11,
   textAlign: "right",
   color: "var(--text)",
+  fontWeight: 700,
 };
 
 const digitsConfidencePlaceholderStyle: CSSProperties = {
   minHeight: 160,
-  borderRadius: 12,
-  border: "1px dashed var(--border)",
+  border: "1px dashed var(--accent-border)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   padding: 16,
   textAlign: "center",
   color: "var(--text)",
-  background: "rgba(107, 99, 117, 0.04)",
+  background: "rgba(181, 137, 33, 0.03)",
+  fontSize: 11,
 };
 
 const pagerStyle: CSSProperties = {
@@ -1072,8 +1073,9 @@ const pagerStyle: CSSProperties = {
 };
 
 const pagerStatusStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: 11,
   color: "var(--text)",
+  fontWeight: 700,
 };
 
 const legendStyle: CSSProperties = {
@@ -1082,7 +1084,7 @@ const legendStyle: CSSProperties = {
   gap: 12,
   flexWrap: "wrap",
   marginTop: 12,
-  fontSize: 12,
+  fontSize: 11,
   color: "var(--text)",
 };
 
@@ -1095,24 +1097,23 @@ const legendItemStyle: CSSProperties = {
 const legendDotStyle: CSSProperties = {
   width: 10,
   height: 10,
-  borderRadius: 999,
 };
 
 const legendHintStyle: CSSProperties = {
   marginLeft: "auto",
+  fontSize: 10,
 };
 
 const placeholderStyle: CSSProperties = {
   width: "100%",
   minHeight: 220,
-  borderRadius: 16,
   border: "1px dashed var(--accent-border)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   color: "var(--text)",
-  fontSize: 13,
-  background: "var(--accent-bg)",
+  fontSize: 12,
+  background: "rgba(181, 137, 33, 0.03)",
   textAlign: "center",
   padding: 24,
   boxSizing: "border-box",
@@ -1125,11 +1126,13 @@ function digitResultBadgeStyle(
     return {
       alignSelf: "flex-start",
       padding: "4px 8px",
-      borderRadius: 999,
-      fontSize: 11,
+      fontSize: 10,
+      fontWeight: 800,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
       color: CORRECT_COLOR,
-      background: "rgba(18, 112, 76, 0.18)",
-      border: "1px solid rgba(18, 112, 76, 0.28)",
+      background: "rgba(63, 185, 80, 0.1)",
+      border: "1px solid rgba(63, 185, 80, 0.25)",
     };
   }
 
@@ -1137,22 +1140,26 @@ function digitResultBadgeStyle(
     return {
       alignSelf: "flex-start",
       padding: "4px 8px",
-      borderRadius: 999,
-      fontSize: 11,
+      fontSize: 10,
+      fontWeight: 800,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
       color: INCORRECT_COLOR,
-      background: "rgba(171, 77, 31, 0.18)",
-      border: "1px solid rgba(171, 77, 31, 0.24)",
+      background: "rgba(221, 68, 68, 0.08)",
+      border: "1px solid rgba(221, 68, 68, 0.2)",
     };
   }
 
   return {
     alignSelf: "flex-start",
     padding: "4px 8px",
-    borderRadius: 999,
-    fontSize: 11,
-    color: DIGITS_CARD_FOREGROUND,
-    background: "rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.12)",
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "var(--text)",
+    background: "rgba(255, 255, 255, 0.04)",
+    border: "1px solid var(--border)",
   };
 }
 
@@ -1166,12 +1173,11 @@ function digitsConfidenceFillStyle(
     ? DIGITS_TRUTH_COLOR
     : isPredicted
       ? DIGITS_PREDICTED_COLOR
-      : "rgba(107, 99, 117, 0.5)";
+      : "rgba(181, 137, 33, 0.3)";
 
   return {
     width,
     height: "100%",
-    borderRadius: 999,
     background,
   };
 }
@@ -1179,12 +1185,17 @@ function digitsConfidenceFillStyle(
 function pagerButtonStyle(disabled: boolean): CSSProperties {
   return {
     padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid var(--border)",
-    background: disabled ? "var(--accent-bg)" : "var(--bg)",
-    color: disabled ? "rgba(107, 99, 117, 0.48)" : "var(--text)",
+    border: disabled ? "1px solid var(--border)" : "2px solid var(--brass)",
+    background: disabled ? "transparent" : "var(--brass)",
+    color: disabled ? "var(--text)" : "#000",
     cursor: disabled ? "not-allowed" : "pointer",
     minWidth: 72,
+    fontWeight: 800,
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    opacity: disabled ? 0.4 : 1,
+    transition: "all 0.1s",
   };
 }
 
@@ -1192,33 +1203,34 @@ function statusPill(trainingStatus: TrainingStatus): CSSProperties {
   const palette =
     trainingStatus === "completed"
       ? {
-          color: "#12704c",
-          background: "rgba(44, 184, 118, 0.14)",
-          border: "rgba(44, 184, 118, 0.24)",
+          color: "#3fb950",
+          background: "rgba(63, 185, 80, 0.1)",
+          border: "rgba(63, 185, 80, 0.3)",
         }
       : trainingStatus === "failed"
         ? {
-            color: "#ab4d1f",
-            background: "rgba(255, 159, 67, 0.14)",
-            border: "rgba(255, 159, 67, 0.24)",
+            color: "#d44",
+            background: "rgba(221, 68, 68, 0.08)",
+            border: "rgba(221, 68, 68, 0.25)",
           }
         : trainingStatus === "training"
           ? {
-              color: "var(--accent)",
-              background: "rgba(170, 59, 255, 0.12)",
-              border: "rgba(170, 59, 255, 0.22)",
+              color: "var(--brass)",
+              background: "rgba(181, 137, 33, 0.1)",
+              border: "var(--accent-border)",
             }
           : {
               color: "var(--text)",
-              background: "var(--accent-bg)",
+              background: "transparent",
               border: "var(--border)",
             };
 
   return {
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 600,
+    padding: "5px 10px",
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
     color: palette.color,
     background: palette.background,
     border: `1px solid ${palette.border}`,
