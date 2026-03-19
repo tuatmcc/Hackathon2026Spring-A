@@ -29,7 +29,7 @@ import type {
 import { STAGE_DATA } from "../config/stages";
 import { useGameStore } from "./gameStore";
 import { buildModel } from "../ml/buildModel";
-import { getDatasetGenerator } from "../ml/datasets";
+import { getDatasetGenerator, getAsyncDatasetLoader, isAsyncDataset } from "../ml/datasets";
 import { trainModel } from "../ml/trainer";
 import {
   createDecisionBoundarySnapshot,
@@ -70,11 +70,11 @@ interface PlayStore {
   setBatchSize: (bs: number) => void;
   setEpochs: (epochs: number) => void;
 
-  // --- 学習状態操作 ---
+// --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) => void;
   addMetrics: (m: TrainingMetrics) => void;
   resetTrainingState: () => void;
-  prepareVisualization: (stage: StageDef | null) => SerializedDataset | null;
+  prepareVisualization: (stage: StageDef | null) => Promise<SerializedDataset | null>;
   setBoundarySnapshot: (snapshot: DecisionBoundarySnapshot | null) => void;
   beginTrainingRun: () => number;
   isTrainingRunCurrent: (runId: number) => boolean;
@@ -135,7 +135,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       trainingStatus: initialState.trainingStatus,
       metrics: initialState.metrics,
     }),
-  prepareVisualization: (stage: StageDef | null) => {
+  prepareVisualization: async (stage: StageDef | null) => {
     if (!stage) {
       set({
         visualizationStageId: null,
@@ -156,9 +156,19 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       return current.datasetPreview;
     }
 
-    const rawDataset = getDatasetGenerator(stage.datasetId)();
-
+    let rawDataset;
     try {
+      if (isAsyncDataset(stage.datasetId)) {
+        const loader = getAsyncDatasetLoader(stage.datasetId);
+        if (!loader) {
+          console.error(`No loader for async dataset: ${stage.datasetId}`);
+          return null;
+        }
+        rawDataset = await loader();
+      } else {
+        rawDataset = getDatasetGenerator(stage.datasetId)();
+      }
+
       const datasetPreview = serializeDataset(rawDataset, stage);
       set({
         visualizationStageId: stage.id,
@@ -170,8 +180,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       });
       return datasetPreview;
     } finally {
-      rawDataset.xs.dispose();
-      rawDataset.ys.dispose();
+      rawDataset?.xs.dispose();
+      rawDataset?.ys.dispose();
     }
   },
   setBoundarySnapshot: (snapshot: DecisionBoundarySnapshot | null) =>
@@ -191,7 +201,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     const stage = STAGE_DATA[currentStageIndex];
     if (!stage) return;
 
-    const datasetPreview = get().prepareVisualization(stage);
+    const datasetPreview = await get().prepareVisualization(stage);
     if (!datasetPreview) return;
 
     const runId = get().beginTrainingRun();
