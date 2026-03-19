@@ -484,6 +484,28 @@
   filter: none;
 }
 
+.screen-button--danger-sm {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(221, 68, 68, 0.5);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color 0.15s;
+  text-align: right;
+  align-self: flex-end;
+  width: 100%;
+}
+
+.screen-button--danger-sm:hover {
+  color: var(--danger);
+}
+
 .screen-panel--title .screen-button--secondary {
   border-color: var(--brass);
   color: var(--brass);

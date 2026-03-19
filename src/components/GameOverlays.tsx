@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { TrainResult } from "../ml/trainer";
 import type { StageDef } from "../types";
 import { SteamParticles } from "./SteamParticles";
@@ -9,6 +10,7 @@ interface TitleScreenProps {
   totalStages: number;
   onStart: () => void;
   onOpenTutorial: () => void;
+  onReset: () => void;
 }
 
 interface TutorialScreenProps {
@@ -39,7 +41,10 @@ export function TitleScreen({
   totalStages,
   onStart,
   onOpenTutorial,
+  onReset,
 }: TitleScreenProps) {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   return (
     <div className="screen-overlay screen-overlay--title">
       <div className="screen-panel screen-panel--title">
@@ -93,7 +98,46 @@ export function TitleScreen({
             Tutorial
           </button>
         </div>
+
+        {hasProgress && (
+          <button
+            className="screen-button--danger-sm"
+            onClick={() => setShowResetConfirm(true)}
+          >
+            Reset All Data
+          </button>
+        )}
       </div>
+
+      {showResetConfirm && (
+        <div className="title-screen__dialog-backdrop">
+          <div className="title-screen__dialog">
+            <h2>Reset All Data</h2>
+            <p>
+              すべてのセーブデータを削除して最初からやり直します。
+              クリア済みステージ、獲得ポイント、解放済みスキルがすべて失われます。
+              この操作は元に戻せません。
+            </p>
+            <div className="title-screen__dialog-actions">
+              <button
+                className="title-screen__dialog-cancel"
+                onClick={() => setShowResetConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="title-screen__dialog-confirm"
+                onClick={() => {
+                  setShowResetConfirm(false);
+                  onReset();
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
