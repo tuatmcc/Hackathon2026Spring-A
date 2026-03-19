@@ -17,13 +17,11 @@ const initialState: Omit<
   | "setTrainingStatus"
   | "addMetrics"
   | "resetPlay"
-  | "setCurrentStageId"
 > = {
   nodes: [],
   edges: [],
   trainingStatus: "idle" as TrainingStatus,
   metrics: [] as TrainingMetrics[],
-  currentStageId: null,
 };
 
 export const usePlayStore = create<PlayState>()((set, get) => ({
@@ -47,6 +45,4 @@ export const usePlayStore = create<PlayState>()((set, get) => ({
     set((s) => ({ metrics: [...s.metrics, m] })),
 
   resetPlay: () => set({ ...initialState }),
-
-  setCurrentStageId: (id: string | null) => set({ currentStageId: id }),
 }));

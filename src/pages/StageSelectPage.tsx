@@ -1,57 +1,65 @@
 // ============================================================
-// ステージ選択画面
+// メニューオーバーレイ (ステージ選択・設定)
+// ハンバーガーメニューやヘッダーから開く上位階層の画面
 // ============================================================
 
 import { STAGE_DATA } from "../config/stages";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
 
-export function StageSelectPage() {
-  const { clearedStages, setPage } = useGameStore();
-  const { setCurrentStageId, resetPlay } = usePlayStore();
+interface Props {
+  onClose: () => void;
+}
 
-  const handleSelect = (stageId: string) => {
+export function MenuOverlay({ onClose }: Props) {
+  const { clearedStages, currentStageIndex, selectStage } = useGameStore();
+  const { resetPlay } = usePlayStore();
+
+  const handleSelect = (index: number) => {
     resetPlay();
-    setCurrentStageId(stageId);
-    setPage("play");
+    selectStage(index);
+    onClose();
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>Stage Select</h2>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-          gap: 16,
-          marginTop: 16,
-        }}
-      >
-        {STAGE_DATA.map((stage) => {
-          const cleared = clearedStages.includes(stage.id);
-          return (
-            <div
-              key={stage.id}
-              style={{
-                border: "1px solid",
-                borderColor: cleared ? "#4caf50" : "#ccc",
-                borderRadius: 8,
-                padding: 16,
-              }}
-            >
-              <h3>
-                {stage.name} {cleared && "(Cleared)"}
-              </h3>
-              <p style={{ fontSize: 14, color: "#666" }}>
-                {stage.description}
-              </p>
-              <p style={{ fontSize: 12 }}>
-                Target Loss: {stage.targetLoss} | Reward: {stage.rewardPoints}pt
-              </p>
-              <button onClick={() => handleSelect(stage.id)}>Play</button>
-            </div>
-          );
-        })}
+    <div className="menu-overlay">
+      <div className="menu-content">
+        <div className="menu-header">
+          <h2>Menu</h2>
+          <button className="menu-close" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        <h3 style={{ marginTop: 16 }}>Stage Select</h3>
+        <div className="menu-stage-list">
+          {STAGE_DATA.map((stage, i) => {
+            const cleared = clearedStages.includes(stage.id);
+            const isCurrent = i === currentStageIndex;
+            return (
+              <div
+                key={stage.id}
+                className={`menu-stage-card${isCurrent ? " current" : ""}${cleared ? " cleared" : ""}`}
+              >
+                <div>
+                  <strong>
+                    {stage.name} {cleared && "(Cleared)"} {isCurrent && " <-"}
+                  </strong>
+                  <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+                    {stage.description}
+                  </div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>
+                    Target Loss: {stage.targetLoss} | Reward:{" "}
+                    {stage.rewardPoints}pt
+                  </div>
+                </div>
+                <button onClick={() => handleSelect(i)}>
+                  {isCurrent ? "Restart" : "Play"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

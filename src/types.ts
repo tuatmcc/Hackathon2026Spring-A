@@ -38,9 +38,14 @@ export interface GameState {
   points: number;
   unlockedSkills: string[];
   clearedStages: string[];
+  /** 現在挑戦中のステージIndex (STAGE_DATA の添字) */
+  currentStageIndex: number;
   unlockSkill: (skillId: string) => void;
   addPoints: (amount: number) => void;
+  /** ステージクリア → clearedStages に追加し、次ステージへ自動進行 */
   clearStage: (stageId: string) => void;
+  /** メニューから任意のステージに切り替える（過去ステージ再挑戦用） */
+  selectStage: (index: number) => void;
 }
 
 /** 学習指標 */
@@ -58,7 +63,6 @@ export interface PlayState {
   edges: Edge[];
   trainingStatus: TrainingStatus;
   metrics: TrainingMetrics[];
-  currentStageId: string | null;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -67,9 +71,8 @@ export interface PlayState {
   setTrainingStatus: (status: TrainingStatus) => void;
   addMetrics: (m: TrainingMetrics) => void;
   resetPlay: () => void;
-  setCurrentStageId: (id: string | null) => void;
 }
 
 // ---------- ルーティング ----------
 
-export type PageId = "stageSelect" | "play" | "skillTree";
+export type PageId = "play" | "skillTree";

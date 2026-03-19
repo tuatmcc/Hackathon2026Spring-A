@@ -1,35 +1,121 @@
 /* ============================================================
-   App Layout -- 最低限のレイアウト
+   App Layout
    ============================================================ */
 
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Header */
+/* ---- Header ---- */
 .app-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border, #ccc);
   background: var(--bg, #fff);
+  flex-shrink: 0;
 }
 
 .app-title {
-  font-size: 18px;
+  font-size: 16px;
   margin: 0;
   white-space: nowrap;
 }
 
-.app-nav {
-  display: flex;
-  gap: 8px;
+.app-stage-label {
+  font-size: 13px;
+  color: #888;
 }
 
-.app-nav button {
+.app-points {
+  margin-left: auto;
+  font-weight: bold;
+  font-family: var(--mono, monospace);
+  font-size: 14px;
+}
+
+.app-menu-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ---- Main content ---- */
+.app-main {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* ---- Bottom Tabs ---- */
+.app-bottom-tabs {
+  display: flex;
+  border-top: 1px solid var(--border, #ccc);
+  background: var(--bg, #fff);
+  flex-shrink: 0;
+}
+
+.app-bottom-tabs .tab {
+  flex: 1;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.15s, background 0.15s;
+}
+
+.app-bottom-tabs .tab.active {
+  color: var(--accent, #aa3bff);
+  background: var(--accent-bg, rgba(170, 59, 255, 0.06));
+}
+
+.app-bottom-tabs .tab:not(.active):hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* ---- Menu Overlay ---- */
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-content {
+  background: var(--bg, #fff);
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.menu-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.menu-close {
   padding: 4px 12px;
   border: 1px solid var(--border, #ccc);
   border-radius: 4px;
@@ -37,20 +123,28 @@
   cursor: pointer;
 }
 
-.app-nav button.active {
-  background: var(--accent, #aa3bff);
-  color: #fff;
+.menu-stage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.menu-stage-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 8px;
+}
+
+.menu-stage-card.current {
   border-color: var(--accent, #aa3bff);
+  background: var(--accent-bg, rgba(170, 59, 255, 0.06));
 }
 
-.app-points {
-  margin-left: auto;
-  font-weight: bold;
-  font-family: var(--mono, monospace);
-}
-
-/* Main */
-.app-main {
-  flex: 1;
-  overflow: auto;
+.menu-stage-card.cleared {
+  border-color: #4caf50;
 }

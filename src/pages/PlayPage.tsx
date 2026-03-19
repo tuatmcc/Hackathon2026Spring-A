@@ -22,17 +22,17 @@ export function PlayPage() {
     onConnect,
     trainingStatus,
     metrics,
-    currentStageId,
     setTrainingStatus,
     addMetrics,
+    resetPlay,
   } = usePlayStore();
 
-  const { addPoints, clearStage, setPage } = useGameStore();
-
-  const stage = STAGE_DATA.find((s) => s.id === currentStageId);
+  const { currentStageIndex, addPoints, clearStage } = useGameStore();
+  const stage = STAGE_DATA[currentStageIndex];
 
   const handleStartTraining = async () => {
     if (!stage) return;
+    resetPlay();
     setTrainingStatus("training");
     try {
       const model = buildModelFromGraph(nodes, edges);
@@ -43,7 +43,7 @@ export function PlayPage() {
         onEpochEnd: (m) => addMetrics(m),
       });
       if (finalLoss <= stage.targetLoss) {
-        clearStage(stage.id);
+        clearStage(stage.id); // 自動進行もここで起きる
         addPoints(stage.rewardPoints);
         setTrainingStatus("completed");
       } else {
@@ -55,7 +55,7 @@ export function PlayPage() {
   };
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 48px)" }}>
+    <div style={{ display: "flex", height: "100%" }}>
       {/* 左ペイン: ネットワークエディタ */}
       <div style={{ flex: 2, borderRight: "1px solid #ccc" }}>
         <NetworkEditor
@@ -76,19 +76,19 @@ export function PlayPage() {
           overflow: "auto",
         }}
       >
-        <div style={{ padding: 16 }}>
-          <button onClick={() => setPage("stageSelect")}>
-            &larr; Back to Stages
-          </button>
-          {stage && (
-            <h3 style={{ marginTop: 8 }}>
+        {stage && (
+          <div style={{ padding: 16 }}>
+            <h3>
               {stage.name}: {stage.description}
             </h3>
-          )}
-        </div>
+            <p style={{ fontSize: 12, color: "#888" }}>
+              Target Loss: {stage.targetLoss}
+            </p>
+          </div>
+        )}
 
         {/* 右上: データ可視化 */}
-        <DataVisualization stageId={currentStageId} />
+        <DataVisualization stageId={stage?.id ?? null} />
 
         {/* 右下: 学習パネル */}
         <TrainingPanel

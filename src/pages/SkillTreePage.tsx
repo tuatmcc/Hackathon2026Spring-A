@@ -6,11 +6,10 @@ import { useGameStore } from "../stores/gameStore";
 import { SkillTree } from "../components/SkillTree";
 
 export function SkillTreePage() {
-  const { points, unlockedSkills, unlockSkill, setPage } = useGameStore();
+  const { points, unlockedSkills, unlockSkill } = useGameStore();
 
   return (
     <div style={{ padding: 24 }}>
-      <button onClick={() => setPage("stageSelect")}>&larr; Back</button>
       <SkillTree
         points={points}
         unlockedSkills={unlockedSkills}
