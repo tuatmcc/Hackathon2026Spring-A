@@ -11,6 +11,10 @@ import { STAGE_DATA } from "../config/stages";
 import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
+import {
+  formatStageTargetValue,
+  getStageTargetLabel,
+} from "../stageUtils";
 import type { TrainingMetrics, TrainingStatus } from "../types";
 
 const CHART_WIDTH = 100;
@@ -23,7 +27,6 @@ export function TrainingPanel() {
   const currentStageIndex = useGameStore((s) => s.currentStageIndex);
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
   const stage = STAGE_DATA[currentStageIndex];
-  const targetAccuracy = stage?.targetAccuracy;
   const {
     selectedOptimizer,
     setSelectedOptimizer,
@@ -42,6 +45,35 @@ export function TrainingPanel() {
     (s) => s.treeId === "optimizer" && unlockedSkills.includes(s.id),
   );
   const latestMetrics = metrics[metrics.length - 1];
+  const isRegressionTask = stage?.taskType === "regression";
+  const targetValue = isRegressionTask ? stage?.targetLoss : stage?.targetAccuracy;
+  const summaryMetricLabel = isRegressionTask ? "Val Loss" : "Val Acc";
+  const summaryMetricValue = isRegressionTask
+    ? formatMetric(latestMetrics?.valLoss ?? latestMetrics?.loss)
+    : formatPercent(latestMetrics?.valAccuracy ?? latestMetrics?.accuracy);
+  const chartTitle = isRegressionTask ? "Loss Curve" : "Accuracy Curve";
+  const trainMetricSelector = (item: TrainingMetrics) =>
+    isRegressionTask ? item.loss : item.accuracy;
+  const validationMetricSelector = (item: TrainingMetrics) =>
+    isRegressionTask ? item.valLoss : item.valAccuracy;
+  const chartMaxValue = getChartMax(
+    metrics,
+    trainMetricSelector,
+    validationMetricSelector,
+    targetValue,
+    isRegressionTask,
+  );
+  const chartTicks = getChartTicks(chartMaxValue, isRegressionTask);
+  const trainPoints = getMetricPlotPoints(
+    metrics,
+    trainMetricSelector,
+    chartMaxValue,
+  );
+  const validationPoints = getMetricPlotPoints(
+    metrics,
+    validationMetricSelector,
+    chartMaxValue,
+  );
 
   return (
     <section style={panelStyle}>
@@ -130,17 +162,17 @@ export function TrainingPanel() {
           value={formatMetric(latestMetrics?.loss)}
         />
         <MetricCard
-          label="Val Acc"
-          value={formatPercent(latestMetrics?.valAccuracy)}
+          label={summaryMetricLabel}
+          value={summaryMetricValue}
         />
       </div>
 
       <div style={chartShellStyle}>
         <div style={chartHeaderStyle}>
-          <strong>Accuracy Curve</strong>
-          {targetAccuracy != null && (
+          <strong>{chartTitle}</strong>
+          {stage && targetValue != null && (
             <span style={targetStyle}>
-              Target {(targetAccuracy * 100).toFixed(0)}%
+              {getStageTargetLabel(stage)} {formatStageTargetValue(stage)}
             </span>
           )}
         </div>
@@ -152,24 +184,24 @@ export function TrainingPanel() {
               preserveAspectRatio="none"
               style={chartSvgStyle}
             >
-              {[0, 0.5, 1].map((tick) => (
+              {chartTicks.map((tick) => (
                 <line
                   key={tick}
                   x1={0}
-                  y1={valueToY(tick)}
+                  y1={valueToY(tick, chartMaxValue)}
                   x2={CHART_WIDTH}
-                  y2={valueToY(tick)}
+                  y2={valueToY(tick, chartMaxValue)}
                   stroke="var(--border)"
                   strokeWidth={0.5}
                 />
               ))}
 
-              {targetAccuracy != null && (
+              {targetValue != null && (
                 <line
                   x1={0}
-                  y1={valueToY(targetAccuracy)}
+                  y1={valueToY(targetValue, chartMaxValue)}
                   x2={CHART_WIDTH}
-                  y2={valueToY(targetAccuracy)}
+                  y2={valueToY(targetValue, chartMaxValue)}
                   stroke={TARGET_LINE_COLOR}
                   strokeDasharray="2.5 2"
                   strokeWidth={0.8}
@@ -177,14 +209,14 @@ export function TrainingPanel() {
               )}
 
               <path
-                d={buildMetricPath(metrics, (item) => item.accuracy)}
+                d={buildMetricPath(trainPoints)}
                 fill="none"
                 stroke={TRAIN_LINE_COLOR}
                 strokeWidth={1.4}
                 strokeLinecap="round"
               />
               <path
-                d={buildMetricPath(metrics, (item) => item.valAccuracy)}
+                d={buildMetricPath(validationPoints)}
                 fill="none"
                 stroke={VALIDATION_LINE_COLOR}
                 strokeWidth={1.4}
@@ -198,7 +230,7 @@ export function TrainingPanel() {
           </>
         ) : (
           <div style={chartPlaceholderStyle}>
-            学習を開始すると精度カーブがここに表示されます。
+            学習を開始すると{isRegressionTask ? "損失" : "精度"}カーブがここに表示されます。
           </div>
         )}
       </div>
@@ -224,12 +256,17 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-function buildMetricPath(
+interface MetricPlotPoint {
+  x: number;
+  y: number;
+}
+
+function getMetricPlotPoints(
   metrics: TrainingMetrics[],
   selector: (item: TrainingMetrics) => number | undefined,
+  maxValue: number,
 ) {
-  let path = "";
-  let started = false;
+  const points: MetricPlotPoint[] = [];
 
   metrics.forEach((item, index) => {
     const value = selector(item);
@@ -241,17 +278,33 @@ function buildMetricPath(
       metrics.length === 1
         ? CHART_WIDTH / 2
         : (index / (metrics.length - 1)) * CHART_WIDTH;
-    const y = valueToY(value);
-    path += `${started ? " L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    started = true;
+    const y = valueToY(value, maxValue);
+    points.push({ x, y });
   });
 
-  return path;
+  return points;
 }
 
-function valueToY(value: number) {
-  const clamped = Math.max(0, Math.min(1, value));
-  return CHART_HEIGHT - clamped * CHART_HEIGHT;
+function buildMetricPath(points: MetricPlotPoint[]) {
+  if (points.length === 1) {
+    const point = points[0];
+    const left = Math.max(0, point.x - 3);
+    const right = Math.min(CHART_WIDTH, point.x + 3);
+    return `M ${left.toFixed(2)} ${point.y.toFixed(2)} L ${right.toFixed(2)} ${point.y.toFixed(2)}`;
+  }
+
+  return points
+    .map((point, index) => {
+      const command = index === 0 ? "M" : "L";
+      return `${command} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function valueToY(value: number, maxValue: number) {
+  const scale = maxValue > 0 ? maxValue : 1;
+  const clamped = Math.max(0, Math.min(scale, value));
+  return CHART_HEIGHT - (clamped / scale) * CHART_HEIGHT;
 }
 
 function formatMetric(value: number | undefined) {
@@ -260,6 +313,38 @@ function formatMetric(value: number | undefined) {
 
 function formatPercent(value: number | undefined) {
   return value != null ? `${(value * 100).toFixed(1)}%` : "--";
+}
+
+function getChartMax(
+  metrics: TrainingMetrics[],
+  trainSelector: (item: TrainingMetrics) => number | undefined,
+  validationSelector: (item: TrainingMetrics) => number | undefined,
+  targetValue: number | undefined,
+  isRegressionTask: boolean | undefined,
+) {
+  if (!isRegressionTask) {
+    return 1;
+  }
+
+  const values = metrics.flatMap((metric) => [
+    trainSelector(metric),
+    validationSelector(metric),
+  ]);
+  const finiteValues = values.filter(
+    (value): value is number => value != null && Number.isFinite(value),
+  );
+  const baseline = targetValue != null ? [targetValue] : [];
+  const maxValue = Math.max(...finiteValues, ...baseline, 0.1);
+
+  return maxValue * 1.1;
+}
+
+function getChartTicks(maxValue: number, isRegressionTask: boolean | undefined) {
+  if (!isRegressionTask) {
+    return [0, 0.5, 1];
+  }
+
+  return [0, maxValue / 2, maxValue];
 }
 
 function statusLabel(trainingStatus: TrainingStatus) {
