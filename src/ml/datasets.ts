@@ -5,6 +5,16 @@ export interface Dataset {
   ys: tf.Tensor;
 }
 
+export type DatasetLoader = () => Dataset | Promise<Dataset>;
+
+interface DigitsJSON {
+  numSamples: number;
+  imageShape: [number, number];
+  numClasses: number;
+  images: number[][];
+  labels: number[];
+}
+
 function rand(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
@@ -91,6 +101,28 @@ export function generateSpiralData(numSamples = 200): Dataset {
   };
 }
 
+/** 手書き数字データ（sklearn digits） */
+export async function loadDigitsData(): Promise<Dataset> {
+  const response = await fetch("/data/digits.json");
+  if (!response.ok) {
+    throw new Error(`Failed to load digits data: ${response.status}`);
+  }
+  
+  const data: DigitsJSON = await response.json();
+  const { numSamples, imageShape, numClasses, images, labels } = data;
+  
+  const xs = tf.tensor4d(
+    images.flat(),
+    [numSamples, imageShape[0], imageShape[1], 1]
+  );
+  
+  const labelsTensor = tf.tensor1d(labels, "int32");
+  const ys = tf.oneHot(labelsTensor, numClasses);
+  labelsTensor.dispose();
+  
+  return { xs, ys };
+}
+
 // ---------- レジストリ ----------
 
 const GENERATORS: Record<string, (n?: number) => Dataset> = {
@@ -100,10 +132,22 @@ const GENERATORS: Record<string, (n?: number) => Dataset> = {
   spiral: generateSpiralData,
 };
 
+const ASYNC_LOADERS: Record<string, DatasetLoader> = {
+  digits: loadDigitsData,
+};
+
 export function getDatasetGenerator(
   datasetId: string,
 ): (n?: number) => Dataset {
   const gen = GENERATORS[datasetId];
   if (!gen) throw new Error(`Unknown dataset: ${datasetId}`);
   return gen;
+}
+
+export function getAsyncDatasetLoader(datasetId: string): DatasetLoader | null {
+  return ASYNC_LOADERS[datasetId] ?? null;
+}
+
+export function isAsyncDataset(datasetId: string): boolean {
+  return datasetId in ASYNC_LOADERS;
 }
