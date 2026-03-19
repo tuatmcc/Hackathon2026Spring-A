@@ -2,7 +2,7 @@
 // PlayPage — Controller (design-only changes)
 // ============================================================
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePlayStore } from "../stores/playStore";
 import { useGameStore } from "../stores/gameStore";
 import { NetworkEditor } from "../components/NetworkEditor";
@@ -48,19 +48,43 @@ export function PlayPage() {
       ? "Loss did not meet the target. Try adjusting your network and learning rate."
       : "Accuracy did not meet the target. Try adjusting your network.";
 
+  // Track whether popup was dismissed with X (so we show floating button)
+  const [popupDismissed, setPopupDismissed] = useState(false);
+
+  const hasNextStage = clearedStage
+    ? STAGE_DATA.findIndex((item) => item.id === clearedStage.id) < STAGE_DATA.length - 1
+    : false;
+
   const handleCloseIntro = () => {
     if (!activeIntroStage) return;
     markStageIntroSeen(activeIntroStage.id);
   };
 
+  // "Next Stage" / "Keep Playing" button in popup
   const handleCloseClearPopup = () => {
+    setPopupDismissed(false);
+    dismissStageClearPopup();
+  };
+
+  // X button: dismiss popup but keep clear state so we show floating button
+  const handleDismissClearPopup = () => {
+    setPopupDismissed(true);
     dismissStageClearPopup();
   };
 
   const handleOpenSkillTree = () => {
+    setPopupDismissed(false);
     dismissStageClearPopup();
     setPage("skillTree");
   };
+
+  // Floating button: acts like "Next Stage" / "Keep Playing"
+  const handleFloatingAction = () => {
+    setPopupDismissed(false);
+  };
+
+  // Show floating button when popup was dismissed with X and stage is completed
+  const showFloatingButton = popupDismissed && trainingStatus === "completed";
 
   return (
     <div style={rootStyle}>
@@ -78,28 +102,48 @@ export function PlayPage() {
 
       {/* Right Pane: Monitor */}
       <div style={rightPaneStyle}>
+        {/* Top row: stage info bar */}
         {stage && (
           <div style={stageInfoStyle}>
-            <div style={stageEyebrowStyle}>Current Mission</div>
-            <div style={stageNameStyle}>{stage.name}</div>
-            <p style={stageDescStyle}>{stage.description}</p>
+            <div style={stageInfoLeftStyle}>
+              <span style={stageEyebrowStyle}>Mission</span>
+              <strong style={stageNameStyle}>{stage.name}</strong>
+            </div>
             <div style={stageTargetStyle}>
-              Target: {stage.taskType === "regression"
+              {stage.taskType === "regression"
                 ? `Loss < ${stage.targetLoss?.toFixed(2)}`
-                : `Accuracy > ${(stage.targetAccuracy * 100).toFixed(0)}%`}
+                : `Acc > ${(stage.targetAccuracy * 100).toFixed(0)}%`}
             </div>
           </div>
         )}
 
-        <DataVisualization />
-        <TrainingPanel />
-
-        {trainingStatus === "failed" && (
-          <div style={failureStyle}>
-            {failureMessage}
+        {/* Main content: viz + training side by side */}
+        <div style={rightContentStyle}>
+          <div style={vizColumnStyle}>
+            <DataVisualization />
           </div>
-        )}
+          <div style={controlColumnStyle}>
+            <TrainingPanel />
+            {trainingStatus === "failed" && (
+              <div style={failureStyle}>
+                {failureMessage}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Floating "Next Stage" button after popup dismissed */}
+      {showFloatingButton && (
+        <div style={floatingButtonContainerStyle}>
+          <button style={floatingNextButtonStyle} onClick={handleFloatingAction}>
+            {hasNextStage ? "Next Stage" : "Keep Playing"}
+          </button>
+          <button style={floatingSkillTreeButtonStyle} onClick={handleOpenSkillTree}>
+            Skill Tree
+          </button>
+        </div>
+      )}
 
       {activeIntroStage && (
         <StageIntroPopup
@@ -113,13 +157,11 @@ export function PlayPage() {
       {clearedStage && (
         <StageClearPopup
           stage={clearedStage}
-          hasNextStage={
-            STAGE_DATA.findIndex((item) => item.id === clearedStage.id) <
-            STAGE_DATA.length - 1
-          }
+          hasNextStage={hasNextStage}
           totalStages={STAGE_DATA.length}
           result={lastTrainingResult}
           onClose={handleCloseClearPopup}
+          onDismiss={handleDismissClearPopup}
           onOpenSkillTree={handleOpenSkillTree}
         />
       )}
@@ -142,56 +184,134 @@ const rightPaneStyle: CSSProperties = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
-  overflow: "auto",
+  overflow: "hidden",
   background: "var(--bg-surface)",
   borderLeft: "2px solid var(--brass)",
+  minWidth: 0,
 };
 
 const stageInfoStyle: CSSProperties = {
-  padding: "16px 18px",
-  borderBottom: "3px solid var(--border)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  padding: "6px 12px",
+  borderBottom: "2px solid var(--border)",
   background: "linear-gradient(180deg, rgba(181, 137, 33, 0.06), transparent)",
+  flexShrink: 0,
+};
+
+const stageInfoLeftStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  minWidth: 0,
 };
 
 const stageEyebrowStyle: CSSProperties = {
-  fontSize: 9,
+  fontSize: 8,
   fontWeight: 800,
   textTransform: "uppercase",
-  letterSpacing: "0.18em",
+  letterSpacing: "0.14em",
   color: "var(--brass)",
-  marginBottom: 6,
+  whiteSpace: "nowrap",
 };
 
 const stageNameStyle: CSSProperties = {
-  fontSize: 18,
+  fontSize: 12,
   fontWeight: 800,
   color: "var(--text-h)",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
-};
-
-const stageDescStyle: CSSProperties = {
-  fontSize: 11,
-  color: "var(--text)",
-  marginTop: 6,
-  lineHeight: 1.5,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const stageTargetStyle: CSSProperties = {
-  marginTop: 8,
-  padding: "6px 10px",
-  fontSize: 11,
+  padding: "3px 8px",
+  fontSize: 10,
   fontWeight: 700,
   color: "var(--brass)",
   background: "rgba(181, 137, 33, 0.08)",
   border: "1px solid var(--accent-border)",
-  display: "inline-block",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
 };
+
+const rightContentStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "row",
+  minHeight: 0,
+  overflow: "hidden",
+};
+
+const vizColumnStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  minWidth: 0,
+  minHeight: 0,
+  overflow: "hidden",
+  borderRight: "1px solid var(--border)",
+};
+
+const controlColumnStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  minWidth: 0,
+  minHeight: 0,
+  overflow: "auto",
+};
+
 const failureStyle: CSSProperties = {
-  padding: 16,
+  padding: "8px 12px",
   color: "#d44",
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 700,
   borderTop: "1px solid rgba(221, 68, 68, 0.2)",
   background: "rgba(221, 68, 68, 0.05)",
+  flexShrink: 0,
+};
+
+const floatingButtonContainerStyle: CSSProperties = {
+  position: "absolute",
+  bottom: 24,
+  right: 24,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  zIndex: 50,
+  animation: "fade-in 0.3s ease",
+};
+
+const floatingNextButtonStyle: CSSProperties = {
+  padding: "14px 28px",
+  border: "none",
+  background: "var(--brass)",
+  color: "#000",
+  fontSize: 13,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
+  cursor: "pointer",
+  boxShadow: "4px 4px 0 rgba(0,0,0,0.4), 0 0 20px rgba(181, 137, 33, 0.25)",
+  transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+};
+
+const floatingSkillTreeButtonStyle: CSSProperties = {
+  padding: "10px 28px",
+  border: "2px solid var(--brass)",
+  background: "rgba(0, 0, 0, 0.85)",
+  color: "var(--brass)",
+  fontSize: 11,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  cursor: "pointer",
+  boxShadow: "3px 3px 0 rgba(0,0,0,0.4)",
+  transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+  backdropFilter: "blur(4px)",
 };

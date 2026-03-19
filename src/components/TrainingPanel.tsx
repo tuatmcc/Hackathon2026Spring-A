@@ -75,9 +75,9 @@ export function TrainingPanel() {
   return (
     <section style={panelStyle}>
       <div style={headerStyle}>
-        <div>
-          <div style={eyebrowStyle}>Engine Control</div>
-          <strong style={{ color: "var(--text-h)", fontSize: 14 }}>Training</strong>
+        <div style={headerLeftStyle}>
+          <div style={eyebrowStyle}>Engine</div>
+          <strong style={{ color: "var(--text-h)", fontSize: 12 }}>Training</strong>
         </div>
         <div style={statusPill(trainingStatus)}>{statusLabel(trainingStatus)}</div>
       </div>
@@ -100,7 +100,7 @@ export function TrainingPanel() {
         </label>
 
         <label style={controlStyle}>
-          <span style={controlLabelStyle}>Learning Rate</span>
+          <span style={controlLabelStyle}>LR</span>
           <input
             type="number"
             value={learningRate}
@@ -113,7 +113,7 @@ export function TrainingPanel() {
         </label>
 
         <label style={controlStyle}>
-          <span style={controlLabelStyle}>Batch Size</span>
+          <span style={controlLabelStyle}>Batch</span>
           <input
             type="number"
             value={batchSize}
@@ -148,7 +148,7 @@ export function TrainingPanel() {
           <SteamParticles active kind="sparks" count={15} duration={0} />
         )}
         <span style={startButtonInnerStyle}>
-          {trainingStatus === "training" ? "Engine Running..." : "Ignite"}
+          {trainingStatus === "training" ? "Running..." : "Ignite"}
         </span>
         {trainingStatus === "training" && (
           <div style={progressStripeStyle} />
@@ -174,7 +174,7 @@ export function TrainingPanel() {
 
       <div style={chartShellStyle}>
         <div style={chartHeaderStyle}>
-          <strong style={{ color: "var(--brass)" }}>{chartTitle}</strong>
+          <strong style={{ color: "var(--brass)", fontSize: 10 }}>{chartTitle}</strong>
           {stage && targetValue != null && (
             <span style={targetStyle}>
               {getStageTargetLabel(stage)} {formatStageTargetValue(stage)}
@@ -230,12 +230,12 @@ export function TrainingPanel() {
             </svg>
             <div style={legendStyle}>
               <LegendItem color={TRAIN_LINE_COLOR} label="Train" />
-              <LegendItem color={VALIDATION_LINE_COLOR} label="Validation" />
+              <LegendItem color={VALIDATION_LINE_COLOR} label="Val" />
             </div>
           </>
         ) : (
           <div style={chartPlaceholderStyle}>
-            {isRegressionTask ? "Start training to see the loss curve." : "Start training to see the accuracy curve."}
+            {isRegressionTask ? "Train to see loss curve" : "Train to see accuracy curve"}
           </div>
         )}
       </div>
@@ -247,7 +247,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div style={metricCardStyle}>
       <span style={metricLabelStyle}>{label}</span>
-      <strong style={{ color: "var(--brass)", fontSize: 14 }}>{value}</strong>
+      <strong style={{ color: "var(--brass)", fontSize: 12 }}>{value}</strong>
     </div>
   );
 }
@@ -366,80 +366,92 @@ function statusLabel(trainingStatus: TrainingStatus) {
 }
 
 const panelStyle: CSSProperties = {
-  padding: 16,
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+  padding: "8px 10px",
   background: "var(--bg-surface)",
-  borderTop: "1px solid var(--border)",
+  overflow: "hidden",
 };
 
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 12,
+  gap: 8,
+  marginBottom: 6,
+  flexShrink: 0,
+};
+
+const headerLeftStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
 };
 
 const eyebrowStyle: CSSProperties = {
-  fontSize: 9,
+  fontSize: 8,
   textTransform: "uppercase",
-  letterSpacing: "0.18em",
+  letterSpacing: "0.14em",
   fontWeight: 800,
   color: "var(--brass)",
-  marginBottom: 4,
 };
 
 const controlsGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 10,
+  gap: 6,
+  flexShrink: 0,
 };
 
 const controlStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 4,
+  gap: 2,
   textAlign: "left",
-  fontSize: 12,
+  fontSize: 11,
 };
 
 const controlLabelStyle: CSSProperties = {
   color: "var(--text)",
   textTransform: "uppercase",
   letterSpacing: "0.1em",
-  fontSize: 9,
+  fontSize: 8,
   fontWeight: 800,
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "8px 10px",
-  border: "2px solid var(--accent-border)",
+  padding: "5px 8px",
+  border: "1px solid var(--accent-border)",
   background: "#000",
   color: "var(--brass)",
   fontWeight: 700,
-  fontSize: 12,
+  fontSize: 11,
 };
 
 function startButtonStyle(status: TrainingStatus): CSSProperties {
   const isRunning = status === "training";
   return {
     width: "100%",
-    marginTop: 14,
+    marginTop: 8,
     padding: 0,
-    border: isRunning ? "3px solid #d44" : "3px solid var(--rust)",
+    border: isRunning ? "2px solid #d44" : "2px solid var(--rust)",
     background: isRunning ? "#600" : "var(--brass)",
     color: isRunning ? "#fff" : "#000",
     fontWeight: 800,
-    fontSize: 13,
+    fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: "0.12em",
     cursor: isRunning ? "progress" : "pointer",
-    boxShadow: isRunning ? "0 0 20px rgba(221, 68, 68, 0.2)" : "4px 4px 0 rgba(0,0,0,0.4)",
+    boxShadow: isRunning ? "0 0 16px rgba(221, 68, 68, 0.2)" : "3px 3px 0 rgba(0,0,0,0.4)",
     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
     overflow: "hidden",
     position: "relative",
     animation: isRunning ? "engine-rumble 0.15s linear infinite" : "none",
+    flexShrink: 0,
   };
 }
 
@@ -447,8 +459,8 @@ const startButtonInnerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
-  padding: "14px 20px",
+  gap: 6,
+  padding: "10px 16px",
   position: "relative",
   zIndex: 2,
 };
@@ -458,24 +470,25 @@ const progressStripeStyle: CSSProperties = {
   bottom: 0,
   left: 0,
   right: 0,
-  height: 4,
+  height: 3,
   background: "repeating-linear-gradient(90deg, rgba(181, 137, 33, 0.4), rgba(181, 137, 33, 0.4) 10px, transparent 10px, transparent 20px)",
-  backgroundSize: "40px 4px",
+  backgroundSize: "40px 3px",
   animation: "progress-stripe 0.6s linear infinite",
 };
 
 const metricsRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 8,
-  marginTop: 12,
+  gap: 4,
+  marginTop: 6,
+  flexShrink: 0,
 };
 
 const metricCardStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 4,
-  padding: "10px 12px",
+  gap: 2,
+  padding: "6px 8px",
   border: "1px solid var(--border)",
   background: "rgba(181, 137, 33, 0.04)",
   textAlign: "left",
@@ -483,7 +496,7 @@ const metricCardStyle: CSSProperties = {
 };
 
 const metricLabelStyle: CSSProperties = {
-  fontSize: 9,
+  fontSize: 8,
   textTransform: "uppercase",
   letterSpacing: "0.12em",
   fontWeight: 800,
@@ -491,23 +504,29 @@ const metricLabelStyle: CSSProperties = {
 };
 
 const chartShellStyle: CSSProperties = {
-  marginTop: 14,
-  padding: 12,
-  border: "2px solid var(--border)",
+  flex: 1,
+  minHeight: 0,
+  marginTop: 6,
+  padding: 8,
+  border: "1px solid var(--border)",
   background: "#000",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
 };
 
 const chartHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 10,
-  fontSize: 12,
+  gap: 6,
+  marginBottom: 4,
+  fontSize: 10,
+  flexShrink: 0,
 };
 
 const targetStyle: CSSProperties = {
-  fontSize: 10,
+  fontSize: 9,
   color: TARGET_LINE_COLOR,
   fontWeight: 700,
 };
@@ -515,40 +534,43 @@ const targetStyle: CSSProperties = {
 const chartSvgStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  height: 140,
+  flex: 1,
+  minHeight: 60,
 };
 
 const chartPlaceholderStyle: CSSProperties = {
-  minHeight: 140,
+  flex: 1,
+  minHeight: 60,
   border: "1px dashed var(--accent-border)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   color: "var(--text)",
-  fontSize: 11,
+  fontSize: 10,
   background: "rgba(181, 137, 33, 0.03)",
   textAlign: "center",
-  padding: 16,
+  padding: 8,
   boxSizing: "border-box",
 };
 
 const legendStyle: CSSProperties = {
   display: "flex",
-  gap: 14,
-  marginTop: 10,
-  fontSize: 11,
+  gap: 10,
+  marginTop: 4,
+  fontSize: 9,
   color: "var(--text)",
+  flexShrink: 0,
 };
 
 const legendItemStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
+  gap: 4,
 };
 
 const legendDotStyle: CSSProperties = {
-  width: 10,
-  height: 10,
+  width: 7,
+  height: 7,
 };
 
 function statusPill(trainingStatus: TrainingStatus): CSSProperties {

@@ -39,7 +39,6 @@ const NEGATIVE_COLOR = [80, 72, 58] as const;
 const CORRECT_COLOR = "#3fb950";
 const INCORRECT_COLOR = "#d44";
 const DIGITS_CARD_BACKGROUND = "#111";
-const DIGITS_CARD_FOREGROUND = "#dcd0b9";
 const DIGITS_PREDICTED_COLOR = "#b58921";
 const DIGITS_TRUTH_COLOR = CORRECT_COLOR;
 const REGRESSION_LINE_COLOR = "#b58921";
@@ -182,7 +181,7 @@ export function DataVisualization() {
   }
 
   return (
-    <div style={panelStyle}>
+    <section style={panelStyle}>
       <div style={headerStyle}>
         <div>
           <div style={eyebrowStyle}>Visualizer</div>
@@ -192,7 +191,7 @@ export function DataVisualization() {
       <div style={placeholderStyle}>
         `inputShape=[2]`、`inputShape=[1]`、`inputShape=[8,8,1]` のステージで可視化できます。
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -210,50 +209,34 @@ function renderTwoDimensionalVisualization(
 ) {
   const epochLabel =
     activeBoundary?.epoch != null
-      ? `Epoch ${activeBoundary.epoch}`
+      ? `Ep ${activeBoundary.epoch}`
       : trainingStatus === "training"
         ? "Training"
         : "Untrained";
 
-  const statusLabel =
-    activeBoundary != null
-      ? trainingStatus === "training"
-        ? "Live decision surface"
-        : "Latest decision surface"
-      : "Dataset preview";
-
   return (
     <section style={panelStyle}>
       <div style={headerStyle}>
-        <div>
+        <div style={headerLeftStyle}>
           <div style={eyebrowStyle}>Visualizer</div>
-          <strong>{stage.name}</strong>
+          <strong style={headerTitleStyle}>{stage.name}</strong>
         </div>
-        <div style={statusPill(trainingStatus)}>{epochLabel}</div>
-      </div>
-
-      <div style={summaryRowStyle}>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Surface</span>
-          <strong>{statusLabel}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Samples</span>
-          <strong>{points.length}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Val Acc</span>
-          <strong>
-            {accuracyLabel != null ? `${(accuracyLabel * 100).toFixed(1)}%` : "--"}
-          </strong>
+        <div style={headerRightStyle}>
+          <span style={compactMetricStyle}>
+            {points.length} pts
+          </span>
+          <span style={compactMetricStyle}>
+            Acc {accuracyLabel != null ? `${(accuracyLabel * 100).toFixed(1)}%` : "--"}
+          </span>
+          <div style={statusPill(trainingStatus)}>{epochLabel}</div>
         </div>
       </div>
 
       <div style={surfaceFrameStyle}>
         <svg
           viewBox={`0 0 ${VIEWBOX_SIZE} ${VIEWBOX_SIZE}`}
-          preserveAspectRatio="none"
-          style={surfaceSvgStyle}
+          preserveAspectRatio="xMidYMid meet"
+          style={surfaceSvgFillStyle}
         >
           <rect
             x={0}
@@ -304,9 +287,6 @@ function renderTwoDimensionalVisualization(
           <span style={{ ...legendDotStyle, background: rgb(POSITIVE_COLOR) }} />
           Class 1
         </div>
-        <div style={legendHintStyle}>
-          背景色はモデルの予測確信度を表します。
-        </div>
       </div>
     </section>
   );
@@ -322,17 +302,10 @@ function renderRegressionVisualization(
 ) {
   const epochLabel =
     snapshot?.epoch != null
-      ? `Epoch ${snapshot.epoch}`
+      ? `Ep ${snapshot.epoch}`
       : trainingStatus === "training"
         ? "Training"
         : "Untrained";
-
-  const statusLabel =
-    snapshot != null
-      ? trainingStatus === "training"
-        ? "Live function fit"
-        : "Latest function fit"
-      : "Dataset preview";
 
   const targetPath = buildCurvePath(samplePoints, plottingDomain);
   const predictionPath = buildCurvePath(
@@ -343,37 +316,26 @@ function renderRegressionVisualization(
   return (
     <section style={panelStyle}>
       <div style={headerStyle}>
-        <div>
+        <div style={headerLeftStyle}>
           <div style={eyebrowStyle}>Visualizer</div>
-          <strong>{stage.name}</strong>
+          <strong style={headerTitleStyle}>{stage.name}</strong>
         </div>
-        <div style={statusPill(trainingStatus)}>{epochLabel}</div>
-      </div>
-
-      <div style={summaryRowStyle}>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Mode</span>
-          <strong>{statusLabel}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Samples</span>
-          <strong>{samplePoints.length}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Target Loss</span>
-          <strong>{formatScalar(stage.targetLoss)}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Val Loss</span>
-          <strong>{formatScalar(lossLabel)}</strong>
+        <div style={headerRightStyle}>
+          <span style={compactMetricStyle}>
+            Loss {formatScalar(lossLabel)}
+          </span>
+          <span style={compactMetricStyle}>
+            Target {formatScalar(stage.targetLoss)}
+          </span>
+          <div style={statusPill(trainingStatus)}>{epochLabel}</div>
         </div>
       </div>
 
       <div style={surfaceFrameStyle}>
         <svg
           viewBox={`0 0 ${VIEWBOX_SIZE} ${VIEWBOX_SIZE}`}
-          preserveAspectRatio="none"
-          style={surfaceSvgStyle}
+          preserveAspectRatio="xMidYMid meet"
+          style={surfaceSvgFillStyle}
         >
           <rect
             x={0}
@@ -428,14 +390,11 @@ function renderRegressionVisualization(
       <div style={legendStyle}>
         <div style={legendItemStyle}>
           <span style={{ ...legendDotStyle, background: REGRESSION_TARGET_COLOR }} />
-          Target function
+          Target
         </div>
         <div style={legendItemStyle}>
           <span style={{ ...legendDotStyle, background: REGRESSION_LINE_COLOR }} />
-          Model prediction
-        </div>
-        <div style={legendHintStyle}>
-          点群は訓練サンプル、線は目標関数と推論結果です。
+          Prediction
         </div>
       </div>
     </section>
@@ -455,98 +414,55 @@ function renderDigitsVisualization(
 ) {
   const epochLabel =
     snapshot?.epoch != null
-      ? `Epoch ${snapshot.epoch}`
+      ? `Ep ${snapshot.epoch}`
       : trainingStatus === "training"
         ? "Training"
         : "Untrained";
 
-  const statusLabel =
-    snapshot != null
-      ? trainingStatus === "training"
-        ? "Live predictions"
-        : "Latest predictions"
-      : "Dataset preview";
-
   return (
     <section style={panelStyle}>
       <div style={headerStyle}>
-        <div>
+        <div style={headerLeftStyle}>
           <div style={eyebrowStyle}>Visualizer</div>
-          <strong>{stage.name}</strong>
+          <strong style={headerTitleStyle}>{stage.name}</strong>
         </div>
-        <div style={statusPill(trainingStatus)}>{epochLabel}</div>
-      </div>
-
-      <div style={summaryRowStyle}>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Mode</span>
-          <strong>{statusLabel}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Sample</span>
-          <strong>{sampleCount > 0 ? `${sampleIndex + 1}/${sampleCount}` : "--"}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Truth</span>
-          <strong>{sample ? sample.label : "--"}</strong>
-        </div>
-        <div style={metricCardStyle}>
-          <span style={metricLabelStyle}>Val Acc</span>
-          <strong>
-            {accuracyLabel != null ? `${(accuracyLabel * 100).toFixed(1)}%` : "--"}
-          </strong>
+        <div style={headerRightStyle}>
+          <span style={compactMetricStyle}>
+            Acc {accuracyLabel != null ? `${(accuracyLabel * 100).toFixed(1)}%` : "--"}
+          </span>
+          <div style={statusPill(trainingStatus)}>{epochLabel}</div>
         </div>
       </div>
 
-      <div style={surfaceFrameStyle}>
-        <div style={digitsSingleLayoutStyle}>
-          <article style={digitPreviewCardStyle}>
-            <div style={digitCardHeaderStyle}>
-              <span style={digitIndexStyle}>
-                {sampleCount > 0 ? `#${sampleIndex + 1}` : "No sample"}
-              </span>
-              <span style={digitLabelChipStyle}>
-                GT {sample ? sample.label : "--"}
-              </span>
-            </div>
-
-            <svg
-              viewBox={`0 0 ${DIGITS_VIEWBOX_SIZE} ${DIGITS_VIEWBOX_SIZE}`}
-              preserveAspectRatio="none"
-              style={digitPreviewSvgStyle}
-            >
+      <div style={digitsMainAreaStyle}>
+        {/* Left: digit image + meta */}
+        <div style={digitsLeftColumnStyle}>
+          <svg
+            viewBox={`0 0 ${DIGITS_VIEWBOX_SIZE} ${DIGITS_VIEWBOX_SIZE}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={digitPreviewSvgCompactStyle}
+          >
+            <rect
+              x={0}
+              y={0}
+              width={DIGITS_VIEWBOX_SIZE}
+              height={DIGITS_VIEWBOX_SIZE}
+              fill={DIGITS_CARD_BACKGROUND}
+            />
+            {sample?.pixels.map((pixel, index) => (
               <rect
-                x={0}
-                y={0}
-                width={DIGITS_VIEWBOX_SIZE}
-                height={DIGITS_VIEWBOX_SIZE}
-                fill={DIGITS_CARD_BACKGROUND}
+                key={`pixel-${sample?.index ?? 0}-${index}`}
+                x={index % DIGITS_VIEWBOX_SIZE}
+                y={Math.floor(index / DIGITS_VIEWBOX_SIZE)}
+                width={1}
+                height={1}
+                fill={digitPixelColor(pixel)}
               />
-              {sample?.pixels.map((pixel, index) => (
-                <rect
-                  key={`pixel-${sample?.index ?? 0}-${index}`}
-                  x={index % DIGITS_VIEWBOX_SIZE}
-                  y={Math.floor(index / DIGITS_VIEWBOX_SIZE)}
-                  width={1}
-                  height={1}
-                  fill={digitPixelColor(pixel)}
-                />
-              ))}
-            </svg>
-
-            <div style={digitMetaStyle}>
-              <div>Truth {sample ? sample.label : "--"}</div>
-              <div>
-                Pred {sample?.predictedLabel != null ? sample.predictedLabel : "--"}
-              </div>
-              <div>
-                Max Conf{" "}
-                {sample?.confidence != null
-                  ? `${(sample.confidence * 100).toFixed(1)}%`
-                  : "--"}
-              </div>
-            </div>
-
+            ))}
+          </svg>
+          <div style={digitsMetaCompactStyle}>
+            <span>GT: <strong style={{ color: "var(--brass)" }}>{sample ? sample.label : "--"}</strong></span>
+            <span>Pred: <strong style={{ color: "var(--brass)" }}>{sample?.predictedLabel != null ? sample.predictedLabel : "--"}</strong></span>
             <div
               style={digitResultBadgeStyle(
                 sample?.isCorrect == null
@@ -557,89 +473,69 @@ function renderDigitsVisualization(
               )}
             >
               {sample?.isCorrect == null
-                ? "Prediction pending"
+                ? "Pending"
                 : sample.isCorrect
                   ? "Correct"
-                  : "Incorrect"}
+                  : "Wrong"}
             </div>
-          </article>
+          </div>
+          {/* Pager */}
+          <div style={pagerCompactStyle}>
+            <button
+              type="button"
+              onClick={onPreviousSample}
+              disabled={sampleIndex <= 0}
+              style={pagerButtonStyle(sampleIndex <= 0)}
+            >
+              &lt;
+            </button>
+            <span style={pagerStatusCompactStyle}>
+              {sampleCount > 0 ? `${sampleIndex + 1}/${sampleCount}` : "--"}
+            </span>
+            <button
+              type="button"
+              onClick={onNextSample}
+              disabled={sampleIndex >= sampleCount - 1}
+              style={pagerButtonStyle(sampleIndex >= sampleCount - 1)}
+            >
+              &gt;
+            </button>
+          </div>
+        </div>
 
-          <section style={digitsConfidenceCardStyle}>
-            <div style={digitsConfidenceHeaderStyle}>
-              <strong>Confidence Array</strong>
-              <span style={digitsConfidenceHintStyle}>classes 0-9</span>
-            </div>
-
-            {sample && sample.classConfidences.length > 0 ? (
-              <div style={digitsConfidenceListStyle}>
-                {sample.classConfidences.map((confidence, label) => (
-                  <div
-                    key={`confidence-${sample.index}-${label}`}
-                    style={digitsConfidenceRowStyle}
-                  >
-                    <span style={digitsConfidenceLabelStyle}>{label}</span>
-                    <div style={digitsConfidenceTrackStyle}>
-                      <div
-                        style={digitsConfidenceFillStyle(
-                          confidence,
-                          label === sample.predictedLabel,
-                          label === sample.label,
-                        )}
-                      />
-                    </div>
-                    <strong style={digitsConfidenceValueStyle}>
-                      {(confidence * 100).toFixed(1)}%
-                    </strong>
+        {/* Right: confidence bars */}
+        <div style={digitsConfidenceCompactStyle}>
+          <div style={digitsConfidenceHeaderCompactStyle}>
+            <strong style={{ fontSize: 10 }}>Confidence</strong>
+          </div>
+          {sample && sample.classConfidences.length > 0 ? (
+            <div style={digitsConfidenceListCompactStyle}>
+              {sample.classConfidences.map((confidence, label) => (
+                <div
+                  key={`confidence-${sample.index}-${label}`}
+                  style={digitsConfidenceRowCompactStyle}
+                >
+                  <span style={digitsConfidenceLabelCompactStyle}>{label}</span>
+                  <div style={digitsConfidenceTrackStyle}>
+                    <div
+                      style={digitsConfidenceFillStyle(
+                        confidence,
+                        label === sample.predictedLabel,
+                        label === sample.label,
+                      )}
+                    />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={digitsConfidencePlaceholderStyle}>
-                学習後に各クラスの確信度配列を表示します。
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
-
-      <div style={pagerStyle}>
-        <button
-          type="button"
-          onClick={onPreviousSample}
-          disabled={sampleIndex <= 0}
-          style={pagerButtonStyle(sampleIndex <= 0)}
-        >
-          Prev
-        </button>
-        <div style={pagerStatusStyle}>
-          {sampleCount > 0
-            ? `Sample ${sampleIndex + 1} / ${sampleCount}`
-            : "No samples"}
-        </div>
-        <button
-          type="button"
-          onClick={onNextSample}
-          disabled={sampleIndex >= sampleCount - 1}
-          style={pagerButtonStyle(sampleIndex >= sampleCount - 1)}
-        >
-          Next
-        </button>
-      </div>
-
-      <div style={legendStyle}>
-        <div style={legendItemStyle}>
-          <span
-            style={{ ...legendDotStyle, background: "rgba(255, 255, 255, 0.8)" }}
-          />
-          Brighter pixels indicate stronger strokes
-        </div>
-        <div style={legendItemStyle}>
-          <span style={{ ...legendDotStyle, background: DIGITS_TRUTH_COLOR }} />
-          Ground truth class
-        </div>
-        <div style={legendItemStyle}>
-          <span style={{ ...legendDotStyle, background: DIGITS_PREDICTED_COLOR }} />
-          Predicted class
+                  <strong style={digitsConfidenceValueCompactStyle}>
+                    {(confidence * 100).toFixed(0)}%
+                  </strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={digitsConfidencePlaceholderCompactStyle}>
+              Train to see confidence
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -876,247 +772,232 @@ function expandDomainEdge(
 }
 
 const panelStyle: CSSProperties = {
-  padding: 16,
-  borderTop: "1px solid var(--border)",
-  borderBottom: "1px solid var(--border)",
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+  padding: "8px 10px",
   background: "var(--bg-surface)",
+  overflow: "hidden",
 };
 
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 12,
+  gap: 8,
+  marginBottom: 6,
+  flexShrink: 0,
+};
+
+const headerLeftStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  minWidth: 0,
+};
+
+const headerTitleStyle: CSSProperties = {
+  color: "var(--text-h)",
+  fontSize: 12,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const headerRightStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  flexShrink: 0,
+};
+
+const compactMetricStyle: CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  color: "var(--text)",
+  whiteSpace: "nowrap",
 };
 
 const eyebrowStyle: CSSProperties = {
-  fontSize: 9,
-  letterSpacing: "0.18em",
+  fontSize: 8,
+  letterSpacing: "0.14em",
   textTransform: "uppercase",
   fontWeight: 800,
   color: "var(--brass)",
-  marginBottom: 4,
-};
-
-const summaryRowStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
-  gap: 8,
-  marginBottom: 12,
-};
-
-const metricCardStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-  padding: "10px 12px",
-  border: "1px solid var(--border)",
-  background: "rgba(181, 137, 33, 0.04)",
-  textAlign: "left",
-};
-
-const metricLabelStyle: CSSProperties = {
-  fontSize: 9,
-  textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  fontWeight: 800,
-  color: "var(--text)",
+  whiteSpace: "nowrap",
 };
 
 const surfaceFrameStyle: CSSProperties = {
   overflow: "hidden",
-  border: "3px solid var(--brass)",
+  border: "2px solid var(--brass)",
   background: "#000",
-  boxShadow: "inset 0 0 12px rgba(181, 137, 33, 0.08), 4px 4px 0 rgba(0,0,0,0.3)",
+  boxShadow: "inset 0 0 8px rgba(181, 137, 33, 0.08)",
+  display: "flex",
+  aspectRatio: "1 / 1",
+  width: "100%",
+  maxHeight: "100%",
+  flexShrink: 1,
+  minHeight: 0,
 };
 
-const surfaceSvgStyle: CSSProperties = {
+const surfaceSvgFillStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  aspectRatio: "1 / 1",
+  height: "100%",
 };
 
-const digitsSingleLayoutStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 16,
-  padding: 16,
-  alignItems: "stretch",
+/* ---------- Digits-specific compact layout ---------- */
+
+const digitsMainAreaStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "row",
+  gap: 8,
+  minHeight: 0,
+  overflow: "hidden",
 };
 
-const digitPreviewCardStyle: CSSProperties = {
+const digitsLeftColumnStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 10,
-  padding: 14,
-  border: "2px solid var(--border)",
-  background: DIGITS_CARD_BACKGROUND,
-  color: DIGITS_CARD_FOREGROUND,
-};
-
-const digitCardHeaderStyle: CSSProperties = {
-  display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
+  gap: 6,
+  minWidth: 80,
+  maxWidth: 140,
+  flexShrink: 0,
 };
 
-const digitIndexStyle: CSSProperties = {
-  fontSize: 10,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  fontWeight: 800,
-  color: "var(--brass)",
-};
-
-const digitLabelChipStyle: CSSProperties = {
-  padding: "2px 7px",
-  background: "rgba(181, 137, 33, 0.15)",
-  border: "1px solid rgba(181, 137, 33, 0.3)",
-  fontSize: 10,
-  fontWeight: 700,
-  color: "var(--brass)",
-};
-
-const digitPreviewSvgStyle: CSSProperties = {
+const digitPreviewSvgCompactStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  maxWidth: 260,
-  alignSelf: "center",
+  maxWidth: 120,
   aspectRatio: "1 / 1",
   imageRendering: "pixelated",
   border: "2px solid var(--brass)",
+  flexShrink: 0,
 };
 
-const digitMetaStyle: CSSProperties = {
-  display: "grid",
+const digitsMetaCompactStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
   gap: 4,
-  fontSize: 11,
+  fontSize: 9,
   fontWeight: 700,
   color: "var(--text)",
+  justifyContent: "center",
 };
 
-const digitsConfidenceCardStyle: CSSProperties = {
+const pagerCompactStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  flexShrink: 0,
+};
+
+const pagerStatusCompactStyle: CSSProperties = {
+  fontSize: 9,
+  color: "var(--text)",
+  fontWeight: 700,
+  whiteSpace: "nowrap",
+};
+
+const digitsConfidenceCompactStyle: CSSProperties = {
+  flex: 1,
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  padding: 14,
-  border: "1px solid var(--border)",
-  background: "rgba(255, 255, 255, 0.02)",
+  gap: 4,
+  minWidth: 0,
+  overflow: "auto",
 };
 
-const digitsConfidenceHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "baseline",
-  justifyContent: "space-between",
-  gap: 8,
+const digitsConfidenceHeaderCompactStyle: CSSProperties = {
   color: "var(--text-h)",
-};
-
-const digitsConfidenceHintStyle: CSSProperties = {
   fontSize: 10,
-  color: "var(--text)",
+  flexShrink: 0,
 };
 
-const digitsConfidenceListStyle: CSSProperties = {
+const digitsConfidenceListCompactStyle: CSSProperties = {
   display: "grid",
-  gap: 8,
+  gap: 3,
 };
 
-const digitsConfidenceRowStyle: CSSProperties = {
+const digitsConfidenceRowCompactStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "24px minmax(0, 1fr) 56px",
+  gridTemplateColumns: "16px minmax(0, 1fr) 36px",
   alignItems: "center",
-  gap: 10,
+  gap: 4,
 };
 
-const digitsConfidenceLabelStyle: CSSProperties = {
-  fontSize: 11,
+const digitsConfidenceLabelCompactStyle: CSSProperties = {
+  fontSize: 9,
   fontWeight: 800,
   color: "var(--brass)",
 };
 
 const digitsConfidenceTrackStyle: CSSProperties = {
   position: "relative",
-  height: 8,
+  height: 6,
   background: "rgba(181, 137, 33, 0.1)",
   overflow: "hidden",
 };
 
-const digitsConfidenceValueStyle: CSSProperties = {
-  fontSize: 11,
+const digitsConfidenceValueCompactStyle: CSSProperties = {
+  fontSize: 9,
   textAlign: "right",
   color: "var(--text)",
   fontWeight: 700,
 };
 
-const digitsConfidencePlaceholderStyle: CSSProperties = {
-  minHeight: 160,
-  border: "1px dashed var(--accent-border)",
+const digitsConfidencePlaceholderCompactStyle: CSSProperties = {
+  flex: 1,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 16,
+  padding: 8,
   textAlign: "center",
   color: "var(--text)",
+  fontSize: 10,
+  border: "1px dashed var(--accent-border)",
   background: "rgba(181, 137, 33, 0.03)",
-  fontSize: 11,
 };
 
-const pagerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  marginTop: 12,
-};
-
-const pagerStatusStyle: CSSProperties = {
-  fontSize: 11,
-  color: "var(--text)",
-  fontWeight: 700,
-};
+/* ---------- Legend ---------- */
 
 const legendStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 12,
+  gap: 10,
   flexWrap: "wrap",
-  marginTop: 12,
-  fontSize: 11,
+  marginTop: 4,
+  fontSize: 9,
   color: "var(--text)",
+  flexShrink: 0,
 };
 
 const legendItemStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
+  gap: 4,
 };
 
 const legendDotStyle: CSSProperties = {
-  width: 10,
-  height: 10,
-};
-
-const legendHintStyle: CSSProperties = {
-  marginLeft: "auto",
-  fontSize: 10,
+  width: 7,
+  height: 7,
 };
 
 const placeholderStyle: CSSProperties = {
-  width: "100%",
-  minHeight: 220,
-  border: "1px dashed var(--accent-border)",
+  flex: 1,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   color: "var(--text)",
-  fontSize: 12,
+  fontSize: 11,
   background: "rgba(181, 137, 33, 0.03)",
   textAlign: "center",
-  padding: 24,
+  padding: 16,
   boxSizing: "border-box",
+  border: "1px dashed var(--accent-border)",
 };
 
 function digitResultBadgeStyle(
@@ -1184,18 +1065,19 @@ function digitsConfidenceFillStyle(
 
 function pagerButtonStyle(disabled: boolean): CSSProperties {
   return {
-    padding: "8px 12px",
-    border: disabled ? "1px solid var(--border)" : "2px solid var(--brass)",
+    padding: "4px 8px",
+    border: disabled ? "1px solid var(--border)" : "1px solid var(--brass)",
     background: disabled ? "transparent" : "var(--brass)",
     color: disabled ? "var(--text)" : "#000",
     cursor: disabled ? "not-allowed" : "pointer",
-    minWidth: 72,
+    minWidth: 28,
     fontWeight: 800,
-    fontSize: 11,
+    fontSize: 10,
     textTransform: "uppercase",
     letterSpacing: "0.06em",
     opacity: disabled ? 0.4 : 1,
     transition: "all 0.1s",
+    lineHeight: 1,
   };
 }
 
