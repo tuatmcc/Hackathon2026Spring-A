@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { StageDef } from "../types";
+import { formatStageTarget } from "../stageUtils";
 
 interface Props {
   stage: StageDef;
@@ -40,8 +41,7 @@ export function StageCard({
           {stage.description}
         </div>
         <div style={{ fontSize: 11, marginTop: 4 }}>
-          Target Accuracy: {(stage.targetAccuracy * 100).toFixed(0)}% | Reward:{" "}
-          {stage.rewardPoints}pt
+          {formatStageTarget(stage)} | Reward: {stage.rewardPoints}pt
         </div>
       </div>
       <button onClick={() => onSelect(index)}>

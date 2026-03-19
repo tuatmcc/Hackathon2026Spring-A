@@ -92,7 +92,7 @@ describe("buildModel", () => {
       lossFunction: "categoricalCrossentropy",
     };
 
-    it("conv2d層を追加できる", () => {
+    it("flattenなしの画像モデルは構築を拒否する", () => {
       const layers: LayerNodeData[] = [
         {
           layerType: "conv2d",
@@ -104,10 +104,9 @@ describe("buildModel", () => {
           kernelSize: 3,
         },
       ];
-      const model = buildModel(layers, imageStage, "adam", 0.001);
-
-      expect(model.layers.length).toBe(2);
-      model.dispose();
+      expect(() => buildModel(layers, imageStage, "adam", 0.001)).toThrow(
+        "Flatten",
+      );
     });
   });
 
@@ -139,6 +138,22 @@ describe("buildModel", () => {
 
       expect(model.layers.length).toBe(4);
       model.dispose();
+    });
+
+    it("画像ステージでflattenなしのdense構成は構築を拒否する", () => {
+      const layers: LayerNodeData[] = [
+        {
+          layerType: "dense",
+          units: 64,
+          activation: "relu",
+          regularization: null,
+          regularizationRate: 0,
+        },
+      ];
+
+      expect(() => buildModel(layers, imageStage, "adam", 0.001)).toThrow(
+        "Flatten",
+      );
     });
   });
 

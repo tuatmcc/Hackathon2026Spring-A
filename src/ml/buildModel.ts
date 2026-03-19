@@ -22,6 +22,22 @@ function createRegularizer(regularization: string | null, rate: number) {
   return undefined;
 }
 
+function formatShape(shape: Array<number | null>) {
+  return `[${shape.map((dim) => (dim == null ? "batch" : String(dim))).join(", ")}]`;
+}
+
+function validateOutputShape(model: tf.LayersModel, stage: StageDef) {
+  const outputShape = model.outputs[0]?.shape ?? [];
+  if (outputShape.length === 2) {
+    return;
+  }
+
+  model.dispose();
+  throw new Error(
+    `${stage.name} の出力 shape が不正です。現在は ${formatShape(outputShape)} です。分類/回帰タスクでは [batch, ${stage.outputUnits}] が必要です。画像系の構成では出力前に Flatten を追加してください。`,
+  );
+}
+
 export function buildModel(
   layers: LayerNodeData[],
   stage: StageDef,
@@ -90,6 +106,8 @@ export function buildModel(
       ...(layers.length === 0 ? { inputShape: stage.inputShape } : {}),
     }),
   );
+
+  validateOutputShape(model, stage);
 
   const opt =
     optimizer === "adam"
