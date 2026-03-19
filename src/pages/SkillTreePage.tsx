@@ -2,8 +2,10 @@
 // SkillTreePage — 4本のスキルツリーを並べる
 // ============================================================
 
+import { useState } from "react";
 import { useGameStore } from "../stores/gameStore";
 import { SkillTree } from "../components/SkillTree";
+import { SkillDetailPopup } from "../components/SkillDetailPopup";
 import { SKILL_DATA } from "../config/skills";
 import type { SkillTreeId } from "../types";
 
@@ -16,6 +18,9 @@ const TREES: { id: SkillTreeId; title: string }[] = [
 
 export function SkillTreePage() {
   const { points, unlockedSkills, unlockSkill } = useGameStore();
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+
+  const selectedSkill = SKILL_DATA.find((s) => s.id === selectedSkillId) ?? null;
 
   return (
     <div style={{ padding: 16 }}>
@@ -37,9 +42,14 @@ export function SkillTreePage() {
             points={points}
             unlockedSkills={unlockedSkills}
             onUnlock={unlockSkill}
+            onSkillClick={setSelectedSkillId}
           />
-        ))}
-      </div>
-    </div>
-  );
-}
+))}
+       </div>
+      <SkillDetailPopup
+        skill={selectedSkill}
+        onClose={() => setSelectedSkillId(null)}
+      />
+     </div>
+   );
+ }

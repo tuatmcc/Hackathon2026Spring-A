@@ -42,6 +42,7 @@ interface Props {
   points: number;
   unlockedSkills: string[];
   onUnlock: (skillId: string) => void;
+  onSkillClick?: (skillId: string) => void;
 }
 
 export function SkillTree({
@@ -50,6 +51,7 @@ export function SkillTree({
   points,
   unlockedSkills,
   onUnlock,
+  onSkillClick,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const skillRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -143,13 +145,14 @@ export function SkillTree({
           />
         ))}
       </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "relative", zIndex: 2 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 94, position: "relative", zIndex: 2 }}>
         {levels.map((levelSkills) => (
           <div key={levelSkills[0]?.id} style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             {levelSkills.map((skill) => (
               <div
                 key={skill.id}
                 ref={setSkillRef(skill.id)}
+                onClick={() => onSkillClick?.(skill.id)}
                 style={{
                   border: "1px solid",
                   borderColor: isUnlocked(skill.id) ? "#4caf50" : "#666",
