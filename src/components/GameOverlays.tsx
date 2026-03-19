@@ -35,6 +35,7 @@ interface StageClearPopupProps {
   rewardPoints: number;
   result: TrainResult | null;
   onClose: () => void;
+  onDismiss: () => void;
   onOpenSkillTree: () => void;
 }
 
@@ -259,12 +260,20 @@ export function StageClearPopup({
   rewardPoints,
   result,
   onClose,
+  onDismiss,
   onOpenSkillTree,
 }: StageClearPopupProps) {
   return (
     <div className="screen-overlay" style={{ position: "fixed" }}>
       <SteamParticles active kind="celebration" count={60} duration={4000} />
-      <div className="screen-panel screen-panel--popup">
+      <div className="screen-panel screen-panel--popup" style={{ position: "relative" }}>
+        <button
+          onClick={onDismiss}
+          style={closeXButtonStyle}
+          aria-label="Close"
+        >
+          &times;
+        </button>
         <div className="screen-kicker" style={{ animation: "fade-in 0.3s ease" }}>Stage Clear</div>
         <h2 className="screen-subtitle" style={{ animation: "stamp-in 0.6s cubic-bezier(0.22, 1, 0.36, 1)" }}>{stage.name} cleared</h2>
         <p className="screen-body">{stage.clearMessage ?? stage.description}</p>
@@ -306,6 +315,26 @@ export function StageClearPopup({
     </div>
   );
 }
+
+const closeXButtonStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 12,
+  right: 12,
+  width: 32,
+  height: 32,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid var(--border)",
+  background: "transparent",
+  color: "var(--text)",
+  fontSize: 22,
+  lineHeight: 1,
+  cursor: "pointer",
+  transition: "all 0.15s",
+  zIndex: 10,
+  padding: 0,
+};
 
 function formatStageTarget(stage: StageDef) {
   if (stage.taskType === "regression") {
