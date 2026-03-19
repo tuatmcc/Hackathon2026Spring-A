@@ -1,11 +1,5 @@
 // ============================================================
-// PlayPage — コントローラ
-//
-// UI と ML をつなぐ唯一の場所。
-// 1. nodes/edges からモデルを構築 (ml/buildModel)
-// 2. データを生成 (ml/datasets)
-// 3. 学習を実行 (ml/trainer)
-// 4. 結果を判定して gameStore を更新
+// PlayPage — Controller (design-only changes)
 // ============================================================
 
 import { useMemo } from "react";
@@ -16,6 +10,7 @@ import { TrainingPanel } from "../components/TrainingPanel";
 import { DataVisualization } from "../components/DataVisualization";
 import { STAGE_DATA } from "../config/stages";
 import { StageClearPopup, StageIntroPopup } from "../components/GameOverlays";
+import type { CSSProperties } from "react";
 
 export function PlayPage() {
   const {
@@ -68,9 +63,9 @@ export function PlayPage() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100%", position: "relative" }}>
-      {/* 左ペイン: ネットワークエディタ */}
-      <div style={{ flex: 2, borderRight: "1px solid #ccc" }}>
+    <div style={rootStyle}>
+      {/* Left Pane: Network Editor */}
+      <div style={leftPaneStyle}>
         <NetworkEditor
           nodes={nodes}
           edges={edges}
@@ -81,31 +76,26 @@ export function PlayPage() {
         />
       </div>
 
-      {/* 右ペイン */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "auto",
-        }}
-      >
+      {/* Right Pane: Monitor */}
+      <div style={rightPaneStyle}>
         {stage && (
-          <div style={{ padding: 16 }}>
-            <h3>{stage.name}</h3>
-            <p style={{ fontSize: 13, color: "#666" }}>{stage.description}</p>
-            <p style={{ fontSize: 12, color: "#888" }}>
-              Target Accuracy: {(stage.targetAccuracy * 100).toFixed(0)}%
-            </p>
+          <div style={stageInfoStyle}>
+            <div style={stageEyebrowStyle}>Current Mission</div>
+            <div style={stageNameStyle}>{stage.name}</div>
+            <p style={stageDescStyle}>{stage.description}</p>
+            <div style={stageTargetStyle}>
+              Target: {stage.taskType === "regression"
+                ? `Loss < ${stage.targetLoss?.toFixed(2)}`
+                : `Accuracy > ${(stage.targetAccuracy * 100).toFixed(0)}%`}
+            </div>
           </div>
         )}
 
         <DataVisualization />
-
         <TrainingPanel />
 
         {trainingStatus === "failed" && (
-          <div style={{ padding: 16, color: "#f44336" }}>
+          <div style={failureStyle}>
             {failureMessage}
           </div>
         )}
@@ -136,3 +126,72 @@ export function PlayPage() {
     </div>
   );
 }
+
+const rootStyle: CSSProperties = {
+  display: "flex",
+  height: "100%",
+  position: "relative",
+};
+
+const leftPaneStyle: CSSProperties = {
+  flex: 2,
+  borderRight: "6px solid var(--iron)",
+};
+
+const rightPaneStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  overflow: "auto",
+  background: "var(--bg-surface)",
+  borderLeft: "2px solid var(--brass)",
+};
+
+const stageInfoStyle: CSSProperties = {
+  padding: "16px 18px",
+  borderBottom: "3px solid var(--border)",
+  background: "linear-gradient(180deg, rgba(181, 137, 33, 0.06), transparent)",
+};
+
+const stageEyebrowStyle: CSSProperties = {
+  fontSize: 9,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.18em",
+  color: "var(--brass)",
+  marginBottom: 6,
+};
+
+const stageNameStyle: CSSProperties = {
+  fontSize: 18,
+  fontWeight: 800,
+  color: "var(--text-h)",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const stageDescStyle: CSSProperties = {
+  fontSize: 11,
+  color: "var(--text)",
+  marginTop: 6,
+  lineHeight: 1.5,
+};
+
+const stageTargetStyle: CSSProperties = {
+  marginTop: 8,
+  padding: "6px 10px",
+  fontSize: 11,
+  fontWeight: 700,
+  color: "var(--brass)",
+  background: "rgba(181, 137, 33, 0.08)",
+  border: "1px solid var(--accent-border)",
+  display: "inline-block",
+};
+const failureStyle: CSSProperties = {
+  padding: 16,
+  color: "#d44",
+  fontSize: 12,
+  fontWeight: 700,
+  borderTop: "1px solid rgba(221, 68, 68, 0.2)",
+  background: "rgba(221, 68, 68, 0.05)",
+};

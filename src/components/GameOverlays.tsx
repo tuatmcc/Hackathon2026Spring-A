@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { TrainResult } from "../ml/trainer";
 import type { StageDef } from "../types";
+import { SteamParticles } from "./SteamParticles";
 
 interface TitleScreenProps {
   hasProgress: boolean;
@@ -8,6 +10,7 @@ interface TitleScreenProps {
   totalStages: number;
   onStart: () => void;
   onOpenTutorial: () => void;
+  onReset: () => void;
 }
 
 interface TutorialScreenProps {
@@ -38,7 +41,10 @@ export function TitleScreen({
   totalStages,
   onStart,
   onOpenTutorial,
+  onReset,
 }: TitleScreenProps) {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   return (
     <div className="screen-overlay screen-overlay--title">
       <div className="screen-panel screen-panel--title">
@@ -92,7 +98,46 @@ export function TitleScreen({
             Tutorial
           </button>
         </div>
+
+        {hasProgress && (
+          <button
+            className="screen-button--danger-sm"
+            onClick={() => setShowResetConfirm(true)}
+          >
+            Reset All Data
+          </button>
+        )}
       </div>
+
+      {showResetConfirm && (
+        <div className="title-screen__dialog-backdrop">
+          <div className="title-screen__dialog">
+            <h2>Reset All Data</h2>
+            <p>
+              すべてのセーブデータを削除して最初からやり直します。
+              クリア済みステージ、獲得ポイント、解放済みスキルがすべて失われます。
+              この操作は元に戻せません。
+            </p>
+            <div className="title-screen__dialog-actions">
+              <button
+                className="title-screen__dialog-cancel"
+                onClick={() => setShowResetConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="title-screen__dialog-confirm"
+                onClick={() => {
+                  setShowResetConfirm(false);
+                  onReset();
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -202,20 +247,21 @@ export function StageClearPopup({
   onOpenSkillTree,
 }: StageClearPopupProps) {
   return (
-    <div className="screen-overlay">
+    <div className="screen-overlay" style={{ position: "fixed" }}>
+      <SteamParticles active kind="celebration" count={60} duration={4000} />
       <div className="screen-panel screen-panel--popup">
-        <div className="screen-kicker">Stage Clear</div>
-        <h2 className="screen-subtitle">{stage.name} cleared</h2>
+        <div className="screen-kicker" style={{ animation: "fade-in 0.3s ease" }}>Stage Clear</div>
+        <h2 className="screen-subtitle" style={{ animation: "stamp-in 0.6s cubic-bezier(0.22, 1, 0.36, 1)" }}>{stage.name} cleared</h2>
         <p className="screen-body">{stage.clearMessage ?? stage.description}</p>
 
         <div className="stage-popup__meta">
-          <div>
+          <div style={{ animation: "slide-in-left 0.4s ease 0.2s backwards" }}>
             <span className="stage-popup__label">Result</span>
             <strong>{formatStageResult(stage, result)}</strong>
           </div>
-          <div>
+          <div style={{ animation: "slide-in-right 0.4s ease 0.3s backwards" }}>
             <span className="stage-popup__label">Reward</span>
-            <strong>+{stage.rewardPoints} pt</strong>
+            <strong style={{ animation: "count-up-glow 1s ease 0.5s backwards" }}>+{stage.rewardPoints} pt</strong>
           </div>
         </div>
 
