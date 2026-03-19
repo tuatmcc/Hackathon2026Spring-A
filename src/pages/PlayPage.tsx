@@ -110,13 +110,9 @@ export function PlayPage() {
           </div>
         )}
 
-        <DataVisualization stage={stage ?? null} />
+        <DataVisualization />
 
-        <TrainingPanel
-          trainingStatus={trainingStatus}
-          metrics={metrics}
-          onStartTraining={handleStartTraining}
-        />
+        <TrainingPanel />
 
         {trainingStatus === "completed" && (
           <div style={{ padding: 16, color: "#4caf50", fontWeight: "bold" }}>
