@@ -10,6 +10,14 @@ npm install
 npm run dev
 ```
 
+## GitHub Pages
+
+`main` への push で GitHub Pages に自動デプロイされるよう、`.github/workflows/deploy-pages.yml` を追加しています。
+
+リポジトリの GitHub 側設定では、`Settings -> Pages -> Build and deployment -> Source` を `GitHub Actions` にしてください。
+
+公開 URL は `https://tuatmcc.github.io/Hackathon2026Spring-A/` です。リポジトリ名を変更した場合は、`vite.config.ts` のフォールバック値も合わせて更新してください。
+
 ## 技術スタック
 
 | カテゴリ | 技術 |
