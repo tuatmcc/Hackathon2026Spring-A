@@ -82,6 +82,15 @@ export const SKILL_DATA: SkillDef[] = [
     dependencies: ["dense_width_cap_6"],
   },
   {
+    id: "dense_width_cap_10",
+    treeId: "layer",
+    name: "Dense幅 10",
+    description: "Dense の幅を 1〜10 まで使えるようにする。",
+    detail: "Dense の units を 1〜10 の整数から選べるようにする。",
+    cost: 40,
+    dependencies: ["dense_width_cap_8"],
+  },
+  {
     id: "model_params_cap_128",
     treeId: "layer",
     name: "総パラメータ上限 128",
@@ -89,6 +98,15 @@ export const SKILL_DATA: SkillDef[] = [
     detail: "総パラメータ上限を 128 まで拡張する。",
     cost: 25,
     dependencies: ["model_params_cap_64"],
+  },
+  {
+    id: "dense_width_cap_12",
+    treeId: "layer",
+    name: "Dense幅 12",
+    description: "Dense の幅を 1〜12 まで使えるようにする。",
+    detail: "Dense の units を 1〜12 の整数から選べるようにする。",
+    cost: 50,
+    dependencies: ["dense_width_cap_10"],
   },
   {
     id: "model_params_cap_256",

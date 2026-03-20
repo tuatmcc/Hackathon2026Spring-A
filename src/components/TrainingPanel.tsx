@@ -2,7 +2,7 @@
 // TrainingPanel — Steampunk-themed training controls + metrics
 // ============================================================
 
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { STAGE_DATA } from "../config/stages";
 import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
@@ -18,8 +18,13 @@ import {
 } from "../stageUtils";
 import type { TrainingMetrics, TrainingStatus } from "../types";
 import { SteamParticles } from "./SteamParticles";
-import { sortLayerNodesTopologically } from "./networkEditorUtils";
+import {
+  sortLayerNodesTopologically,
+  validateSequentialLayerGraph,
+} from "./networkEditorUtils";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
+import { FormNumberStepper } from "./FormNumberStepper";
+import { RichSelect } from "./RichSelect";
 
 const CHART_WIDTH = 100;
 const CHART_HEIGHT = 56;
@@ -45,11 +50,14 @@ export function TrainingPanel() {
     trainingStatus,
     metrics,
     startTraining,
+    stopTraining,
   } = usePlayStore();
+  const [isTrainButtonHovered, setIsTrainButtonHovered] = useState(false);
 
   const availableOptimizers = SKILL_DATA.filter(
     (s) => s.treeId === "optimizer" && unlockedSkills.includes(s.id),
   );
+  const isTraining = trainingStatus === "training";
   const latestMetrics = metrics[metrics.length - 1];
   const isRegressionTask = stage?.taskType === "regression";
   const targetValue = isRegressionTask ? stage?.targetLoss : stage?.targetAccuracy;
@@ -110,6 +118,20 @@ export function TrainingPanel() {
       };
     }
   }, [edges, nodes, stage, unlockedSkills]);
+  const graphValidationMessage = useMemo(() => {
+    try {
+      validateSequentialLayerGraph(nodes, edges);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Fix the network before training.";
+    }
+  }, [edges, nodes]);
+  const isButtonDisabled = !isTraining && graphValidationMessage !== null;
+  const trainButtonLabel = isTraining
+    ? isTrainButtonHovered
+      ? "Stop"
+      : "Running..."
+    : "Ignite";
 
   return (
     <section style={panelStyle}>
@@ -124,75 +146,85 @@ export function TrainingPanel() {
       <div style={controlsGridStyle}>
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Optimizer</span>
-          <select
+          <RichSelect
             value={selectedOptimizer}
-            onChange={(e) => setSelectedOptimizer(e.target.value)}
+            onValueChange={setSelectedOptimizer}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
-          >
-            {availableOptimizers.map((skill) => (
-              <option key={skill.id} value={skill.id}>
-                {skill.name}
-              </option>
-            ))}
-          </select>
+            options={availableOptimizers.map((skill) => ({
+              value: skill.id,
+              label: skill.name,
+            }))}
+            triggerClassName="training-panel__select-shell"
+          />
         </label>
 
         <label style={controlStyle}>
           <span style={controlLabelStyle}>LR</span>
-          <input
-            type="number"
+          <FormNumberStepper
             value={learningRate}
             min={0.0001}
             step={0.001}
-            onChange={(e) => setLearningRate(Number(e.target.value))}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
+            onChange={setLearningRate}
+            inputClassName="rich-control rich-control--number"
           />
         </label>
 
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Batch</span>
-          <input
-            type="number"
+          <FormNumberStepper
             value={batchSize}
             min={1}
-            onChange={(e) => setBatchSize(Number(e.target.value))}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
+            onChange={setBatchSize}
+            inputClassName="rich-control rich-control--number"
           />
         </label>
 
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Epochs</span>
-          <input
-            type="number"
+          <FormNumberStepper
             value={epochs}
             min={1}
-            onChange={(e) => setEpochs(Number(e.target.value))}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
+            onChange={setEpochs}
+            inputClassName="rich-control rich-control--number"
           />
         </label>
       </div>
 
       <button
         onClick={() => {
+          if (isTraining) {
+            stopTraining();
+            return;
+          }
+
           void startTraining();
         }}
-        disabled={trainingStatus === "training"}
-        style={startButtonStyle(trainingStatus)}
+        onMouseEnter={() => setIsTrainButtonHovered(true)}
+        onMouseLeave={() => setIsTrainButtonHovered(false)}
+        onFocus={() => setIsTrainButtonHovered(true)}
+        onBlur={() => setIsTrainButtonHovered(false)}
+        disabled={isButtonDisabled}
+        style={startButtonStyle(trainingStatus, isButtonDisabled, isTrainButtonHovered)}
       >
-        {trainingStatus === "training" && (
+        {isTraining && !isTrainButtonHovered && (
           <SteamParticles active kind="sparks" count={15} duration={0} />
         )}
         <span style={startButtonInnerStyle}>
-          {trainingStatus === "training" ? "Running..." : "Ignite"}
+          {trainButtonLabel}
         </span>
-        {trainingStatus === "training" && (
+        {isTraining && !isTrainButtonHovered && (
           <div style={progressStripeStyle} />
         )}
       </button>
+
+      {graphValidationMessage && (
+        <div style={validationMessageStyle}>
+          {graphValidationMessage}
+        </div>
+      )}
 
       {parameterBudget && (
         <div style={parameterBudgetStyle(parameterBudget.isExceeded)}>
@@ -471,32 +503,44 @@ const controlLabelStyle: CSSProperties = {
   fontWeight: 800,
 };
 
-const inputStyle: CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "5px 8px",
-  border: "1px solid var(--accent-border)",
-  background: "#000",
-  color: "var(--brass)",
-  fontWeight: 700,
-  fontSize: 11,
-};
-
-function startButtonStyle(status: TrainingStatus): CSSProperties {
+function startButtonStyle(
+  status: TrainingStatus,
+  isDisabled: boolean,
+  isHovered: boolean,
+): CSSProperties {
   const isRunning = status === "training";
+  const isStopIntent = isRunning && isHovered;
   return {
     width: "100%",
     marginTop: 8,
     padding: 0,
-    border: isRunning ? "2px solid #d44" : "2px solid var(--rust)",
-    background: isRunning ? "#600" : "var(--brass)",
-    color: isRunning ? "#fff" : "#000",
+    border: isStopIntent
+      ? "2px solid #ff7b72"
+      : isRunning
+      ? "2px solid #d44"
+      : isDisabled
+        ? "2px solid rgba(114, 92, 64, 0.8)"
+        : "2px solid var(--rust)",
+    background: isStopIntent
+      ? "linear-gradient(180deg, #a52222 0%, #6b1111 100%)"
+      : isRunning
+      ? "#600"
+      : isDisabled
+        ? "rgba(95, 80, 55, 0.8)"
+        : "var(--brass)",
+    color: isRunning ? "#fff" : isDisabled ? "rgba(244, 234, 208, 0.72)" : "#000",
     fontWeight: 800,
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: "0.12em",
-    cursor: isRunning ? "progress" : "pointer",
-    boxShadow: isRunning ? "0 0 16px rgba(221, 68, 68, 0.2)" : "3px 3px 0 rgba(0,0,0,0.4)",
+    cursor: isRunning ? "pointer" : isDisabled ? "not-allowed" : "pointer",
+    boxShadow: isStopIntent
+      ? "0 0 18px rgba(255, 123, 114, 0.28)"
+      : isRunning
+      ? "0 0 16px rgba(221, 68, 68, 0.2)"
+      : isDisabled
+        ? "none"
+        : "3px 3px 0 rgba(0,0,0,0.4)",
     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
     overflow: "hidden",
     position: "relative",
@@ -532,6 +576,16 @@ const parameterBudgetLabelStyle: CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.08em",
   color: "var(--text-muted)",
+};
+
+const validationMessageStyle: CSSProperties = {
+  marginTop: 8,
+  padding: "8px 10px",
+  border: "1px solid rgba(184, 115, 51, 0.45)",
+  background: "rgba(80, 33, 24, 0.68)",
+  color: "#f1c27a",
+  fontSize: 10,
+  lineHeight: 1.45,
 };
 
 function parameterBudgetStyle(isExceeded: boolean): CSSProperties {

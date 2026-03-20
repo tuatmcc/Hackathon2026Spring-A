@@ -129,7 +129,7 @@ export function generateSinData(numSamples = 200, seed?: number): Dataset {
 
 /** 手書き数字データ（sklearn digits） */
 export async function loadDigitsData(): Promise<Dataset> {
-  const response = await fetch("/data/digits.json");
+  const response = await fetch(`${import.meta.env.BASE_URL}data/digits.json`);
   if (!response.ok) {
     throw new Error(`Failed to load digits data: ${response.status}`);
   }

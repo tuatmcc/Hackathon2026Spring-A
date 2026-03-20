@@ -13,6 +13,8 @@ import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData } from "../types";
 import { isFixedNodeId } from "./networkEditorUtils";
+import { FormNumberStepper } from "./FormNumberStepper";
+import { RichSelect } from "./RichSelect";
 
 interface Props {
   selectedNodeId: string | null;
@@ -182,7 +184,7 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
                 text={
                   isConvLayer
                     ? "Controls the number of convolution filters. More filters can capture richer image features, but increase model size."
-                    : "Controls layer width. Dense widths unlock in steps up to 2, 4, 6, and 8 units."
+                    : "Controls layer width. Dense widths unlock in stages up to 2, 4, 6, 8, 10, and 12 units."
                 }
               />
             </label>
@@ -213,25 +215,25 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
                   <span key={value}>{value}</span>
                 ))}
               </div>
-              <input
-                className="layer-config__number-input"
-                type="number"
+              <FormNumberStepper
+                id="layer-size-input"
                 value={currentSize}
                 min={minSize}
                 max={maxSize}
-                onChange={(e) =>
+                onChange={(value) =>
                   updateNodeData(
                     node.id,
                     isConvLayer
                       ? {
-                          units: clampToRange(Number(e.target.value), minSize, maxSize),
-                          filters: clampToRange(Number(e.target.value), minSize, maxSize),
+                          units: clampToRange(value, minSize, maxSize),
+                          filters: clampToRange(value, minSize, maxSize),
                         }
                       : {
-                          units: clampToRange(Number(e.target.value), minSize, maxSize),
+                          units: clampToRange(value, minSize, maxSize),
                         },
                   )
                 }
+                inputClassName="layer-config__number-input rich-control rich-control--number"
               />
             </div>
           </div>
@@ -251,23 +253,24 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
           <label className="layer-config__label" htmlFor="layer-activation">
             Function
           </label>
-          <select
+          <RichSelect
             id="layer-activation"
-            className="layer-config__select"
             value={data.activation ?? ""}
-            onChange={(e) =>
+            onValueChange={(nextValue) =>
               updateNodeData(node.id, {
-                activation: e.target.value || null,
+                activation: nextValue || null,
               })
             }
-          >
-            <option value="">none</option>
-            {availableActivations.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "none" },
+              ...availableActivations.map((skill) => ({
+                value: skill.id,
+                label: skill.name,
+              })),
+            ]}
+            triggerClassName="layer-config__select-shell"
+            valueClassName="layer-config__select-value"
+          />
         </div>
         <div className="layer-config__hint">
           {activationDescription ?? "No activation selected. The layer output stays linear."}
@@ -283,23 +286,24 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
           <label className="layer-config__label" htmlFor="layer-regularization">
             Method
           </label>
-          <select
+          <RichSelect
             id="layer-regularization"
-            className="layer-config__select"
             value={data.regularization ?? ""}
-            onChange={(e) =>
+            onValueChange={(nextValue) =>
               updateNodeData(node.id, {
-                regularization: e.target.value || null,
+                regularization: nextValue || null,
               })
             }
-          >
-            <option value="">none</option>
-            {availableRegularizations.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "none" },
+              ...availableRegularizations.map((skill) => ({
+                value: skill.id,
+                label: skill.name,
+              })),
+            ]}
+            triggerClassName="layer-config__select-shell"
+            valueClassName="layer-config__select-value"
+          />
         </div>
 
         <div className="layer-config__hint">
@@ -326,18 +330,17 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
                   })
                 }
               />
-              <input
-                className="layer-config__number-input"
-                type="number"
+              <FormNumberStepper
                 value={data.regularizationRate}
                 min={0}
                 max={1}
                 step={0.05}
-                onChange={(e) =>
+                onChange={(value) =>
                   updateNodeData(node.id, {
-                    regularizationRate: Number(e.target.value),
+                    regularizationRate: value,
                   })
                 }
+                inputClassName="layer-config__number-input rich-control rich-control--number"
               />
             </div>
           </div>

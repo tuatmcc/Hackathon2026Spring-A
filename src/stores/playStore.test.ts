@@ -229,7 +229,23 @@ describe("playStore fixed nodes", () => {
     });
   });
 
+  it("input と output が未接続の空グラフでは学習を開始しない", async () => {
+    await usePlayStore.getState().startTraining();
+
+    expect(usePlayStore.getState()).toMatchObject({
+      trainingStatus: "failed",
+      trainingErrorMessage:
+        "Connect every layer in a single path from Input to Output before training.",
+    });
+    expect(buildModelMock).not.toHaveBeenCalled();
+    expect(trainModelMock).not.toHaveBeenCalled();
+  });
+
   it("同じステージを再クリアしてもポイントは初回分しか増えない", async () => {
+    usePlayStore.setState({
+      edges: [{ id: "edge-direct", source: "__input__", target: "__output__" }],
+    });
+
     await usePlayStore.getState().startTraining();
 
     expect(useGameStore.getState().points).toBe(linearStage.rewardPoints);
@@ -248,6 +264,47 @@ describe("playStore fixed nodes", () => {
     expect(useGameStore.getState().clearedStages).toEqual([linearStage.id]);
     expect(usePlayStore.getState().pendingStageClearId).toBe(linearStage.id);
     expect(usePlayStore.getState().pendingStageClearRewardPoints).toBe(0);
+  });
+
+  it("学習中に停止すると AbortSignal で中断して idle に戻る", async () => {
+    usePlayStore.setState({
+      edges: [{ id: "edge-direct", source: "__input__", target: "__output__" }],
+    });
+
+    let receivedSignal: AbortSignal | undefined;
+    trainModelMock.mockImplementation(
+      async (_model, _dataset, options: { signal?: AbortSignal }) =>
+        new Promise((resolve, reject) => {
+          receivedSignal = options.signal;
+          options.signal?.addEventListener("abort", () => {
+            reject(new Error("Training aborted"));
+          });
+
+          setTimeout(() => {
+            resolve({
+              finalLoss: 0.1,
+              finalAccuracy: linearStage.targetAccuracy,
+            });
+          }, 50);
+        }),
+    );
+
+    const trainingPromise = usePlayStore.getState().startTraining();
+    await Promise.resolve();
+
+    expect(usePlayStore.getState().trainingStatus).toBe("training");
+
+    usePlayStore.getState().stopTraining();
+    await trainingPromise;
+
+    expect(receivedSignal?.aborted).toBe(true);
+    expect(usePlayStore.getState()).toMatchObject({
+      trainingStatus: "idle",
+      activeTrainingRunId: null,
+      trainingAbortController: null,
+      lastTrainingResult: null,
+      trainingErrorMessage: null,
+    });
   });
 
   it("ノード削除で接続エッジも一緒に消える", () => {

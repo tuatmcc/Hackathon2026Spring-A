@@ -59,6 +59,7 @@ interface PlayStore {
   metrics: TrainingMetrics[];
   activeTrainingRunId: number | null;
   nextTrainingRunId: number;
+  trainingAbortController: AbortController | null;
   lastTrainingResult: TrainResult | null;
   pendingStageClearId: string | null;
   pendingStageClearRewardPoints: number;
@@ -87,9 +88,10 @@ interface PlayStore {
   setTrainingStatus: (status: TrainingStatus) => void;
   addMetrics: (m: TrainingMetrics) => void;
   resetTrainingState: () => void;
-  beginTrainingRun: () => number;
+  beginTrainingRun: (controller: AbortController) => number;
   isTrainingRunCurrent: (runId: number) => boolean;
   startTraining: () => Promise<void>;
+  stopTraining: () => void;
   dismissStageClearPopup: () => void;
 
   // --- リセット ---
@@ -108,6 +110,7 @@ const initialState = {
   metrics: [] as TrainingMetrics[],
   activeTrainingRunId: null as number | null,
   nextTrainingRunId: 0,
+  trainingAbortController: null as AbortController | null,
   lastTrainingResult: null as TrainResult | null,
   pendingStageClearId: null as string | null,
   pendingStageClearRewardPoints: 0,
@@ -211,8 +214,14 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   setLearningRate: (lr: number) => set({ learningRate: lr }),
   setBatchSize: (bs: number) => set({ batchSize: bs }),
   setEpochs: (epochs: number) => set({ epochs }),
-  syncStageTrainingSettings: (stage, unlockedSkills) =>
-    set((state) => {
+  syncStageTrainingSettings: (stage, unlockedSkills) => {
+    const state = get();
+    const stageChanged = state.configuredStageId !== stage.id;
+    if (stageChanged) {
+      state.trainingAbortController?.abort();
+    }
+
+    set((currentState) => {
       const stageChanged = state.configuredStageId !== stage.id;
       const availableOptimizerIds = getAvailableOptimizerIds(unlockedSkills);
       const recommendedOptimizer = stage.trainingPreset?.recommendedOptimizer;
@@ -232,6 +241,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         nextState.trainingStatus = initialState.trainingStatus;
         nextState.metrics = [];
         nextState.activeTrainingRunId = null;
+        nextState.trainingAbortController = null;
         nextState.lastTrainingResult = null;
         nextState.pendingStageClearId = null;
         nextState.pendingStageClearRewardPoints = 0;
@@ -239,14 +249,15 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       }
 
       if (
-        !availableOptimizerIds.includes(state.selectedOptimizer) ||
-        (stageChanged && preferredOptimizer !== state.selectedOptimizer)
+        !availableOptimizerIds.includes(currentState.selectedOptimizer) ||
+        (stageChanged && preferredOptimizer !== currentState.selectedOptimizer)
       ) {
         nextState.selectedOptimizer = preferredOptimizer;
       }
 
-      return Object.keys(nextState).length > 0 ? nextState : state;
-    }),
+      return Object.keys(nextState).length > 0 ? nextState : currentState;
+    });
+  },
 
   // --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) =>
@@ -262,16 +273,34 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       pendingStageClearRewardPoints: initialState.pendingStageClearRewardPoints,
       trainingErrorMessage: initialState.trainingErrorMessage,
     }),
-  beginTrainingRun: () => {
+  beginTrainingRun: (controller: AbortController) => {
     const runId = get().nextTrainingRunId + 1;
     set({
       nextTrainingRunId: runId,
       activeTrainingRunId: runId,
+      trainingAbortController: controller,
     });
     return runId;
   },
   isTrainingRunCurrent: (runId: number) =>
     get().activeTrainingRunId === runId,
+  stopTraining: () => {
+    const { trainingAbortController, trainingStatus } = get();
+    if (trainingStatus !== "training" || !trainingAbortController) {
+      return;
+    }
+
+    trainingAbortController.abort();
+    set({
+      trainingStatus: "idle",
+      activeTrainingRunId: null,
+      trainingAbortController: null,
+      lastTrainingResult: null,
+      pendingStageClearId: null,
+      pendingStageClearRewardPoints: 0,
+      trainingErrorMessage: null,
+    });
+  },
   dismissStageClearPopup: () =>
     set({
       pendingStageClearId: null,
@@ -325,9 +354,10 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       return;
     }
 
-    const runId = get().beginTrainingRun();
-    const trainingSeed = deriveSeed(currentStageIndex + 1, runId);
+    const controller = new AbortController();
     get().resetTrainingState();
+    const runId = get().beginTrainingRun(controller);
+    const trainingSeed = deriveSeed(currentStageIndex + 1, runId);
     set({ trainingStatus: "training" });
 
     let dataset: ReturnType<typeof deserializeDataset> | null = null;
@@ -355,6 +385,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         epochs,
         batchSize,
         seed: trainingSeed,
+        signal: controller.signal,
         onEpochEnd: (metrics) => {
           if (!get().isTrainingRunCurrent(runId)) {
             return;
@@ -390,6 +421,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         }
         set({
           trainingStatus: "completed",
+          activeTrainingRunId: null,
+          trainingAbortController: null,
           lastTrainingResult: result,
           pendingStageClearId: stage.id,
           pendingStageClearRewardPoints: awardedPoints,
@@ -398,6 +431,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
       } else {
         set({
           trainingStatus: "failed",
+          activeTrainingRunId: null,
+          trainingAbortController: null,
           lastTrainingResult: result,
           pendingStageClearId: null,
           pendingStageClearRewardPoints: 0,
@@ -405,10 +440,27 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         });
       }
     } catch (error) {
+      if (error instanceof Error && error.message === "Training aborted") {
+        if (get().isTrainingRunCurrent(runId)) {
+          set({
+            trainingStatus: "idle",
+            activeTrainingRunId: null,
+            trainingAbortController: null,
+            lastTrainingResult: null,
+            pendingStageClearId: null,
+            pendingStageClearRewardPoints: 0,
+            trainingErrorMessage: null,
+          });
+        }
+        return;
+      }
+
       console.error("Training failed:", error);
       if (get().isTrainingRunCurrent(runId)) {
         set({
           trainingStatus: "failed",
+          activeTrainingRunId: null,
+          trainingAbortController: null,
           lastTrainingResult: null,
           pendingStageClearId: null,
           pendingStageClearRewardPoints: 0,
@@ -425,6 +477,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
 
   // --- リセット ---
   resetPlay: () => {
+    get().trainingAbortController?.abort();
     set({ ...initialState });
     useVisualizerStore.getState().resetVisualization();
   },
