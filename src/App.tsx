@@ -65,7 +65,7 @@ function App() {
     <div className="app">
       {/* ヘッダー */}
       <header className="app-header">
-        <h1 className="app-title">NN Roguelike</h1>
+        <h1 className="app-title"><span className="logo-highlight">N</span>ode×<span className="logo-highlight">N</span>ode</h1>
         <span className="app-stage-label">
           {stage ? stage.name : "---"}
         </span>
