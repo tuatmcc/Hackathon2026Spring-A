@@ -1,4 +1,9 @@
-import type { ChangeEventHandler } from "react";
+import {
+  useState,
+  type ChangeEventHandler,
+  type FocusEventHandler,
+  type KeyboardEventHandler,
+} from "react";
 
 interface Props {
   id?: string;
@@ -35,19 +40,53 @@ export function FormNumberStepper({
   inputClassName,
   onChange,
 }: Props) {
+  const [draftValue, setDraftValue] = useState<string | null>(null);
+  const inputValue = draftValue ?? String(value);
+
   const handleInputChange: ChangeEventHandler<HTMLInputElement> = (event) => {
     const rawValue = event.target.value;
-    const nextValue = rawValue === "" ? (min ?? 0) : Number(rawValue);
+    setDraftValue(rawValue);
+
+    if (rawValue === "") {
+      return;
+    }
+
+    const nextValue = Number(rawValue);
 
     if (!Number.isFinite(nextValue)) {
       return;
     }
 
-    onChange(clamp(nextValue, min, max));
+    onChange(nextValue);
+  };
+
+  const commitInputValue = (rawValue: string) => {
+    const nextValue = rawValue === "" ? (min ?? 0) : Number(rawValue);
+
+    if (!Number.isFinite(nextValue)) {
+      setDraftValue(null);
+      return;
+    }
+
+    const normalizedValue = clamp(nextValue, min, max);
+    setDraftValue(null);
+    onChange(normalizedValue);
+  };
+
+  const handleBlur: FocusEventHandler<HTMLInputElement> = (event) => {
+    commitInputValue(event.target.value);
+  };
+
+  const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (event) => {
+    if (event.key === "Enter") {
+      event.currentTarget.blur();
+    }
   };
 
   const nudgeValue = (direction: 1 | -1) => {
-    onChange(clamp(value + direction * step, min, max));
+    const nextValue = clamp(value + direction * step, min, max);
+    setDraftValue(null);
+    onChange(nextValue);
   };
 
   return (
@@ -56,12 +95,14 @@ export function FormNumberStepper({
         id={id}
         className={inputClassName}
         type="number"
-        value={value}
+        value={inputValue}
         min={min}
         max={max}
         step={step}
         disabled={disabled}
         onChange={handleInputChange}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
       />
       <div className="rich-stepper__buttons" aria-hidden="true">
         <button
