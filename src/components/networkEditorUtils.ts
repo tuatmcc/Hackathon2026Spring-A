@@ -246,9 +246,6 @@ export function isValidLayerConnection(
     if (target === INPUT_NODE_ID) {
       return false;
     }
-    if (source === INPUT_NODE_ID && target === OUTPUT_NODE_ID) {
-      return false;
-    }
   }
 
   const sourceNode = nodes.find((node) => node.id === source);
@@ -280,11 +277,11 @@ export function isValidLayerConnection(
     return false;
   }
 
-  if (!isFixedNodeId(source) && relevantEdges.some((edge) => edge.source === source)) {
+  if (relevantEdges.some((edge) => edge.source === source)) {
     return false;
   }
 
-  if (!isFixedNodeId(target) && relevantEdges.some((edge) => edge.target === target)) {
+  if (relevantEdges.some((edge) => edge.target === target)) {
     return false;
   }
 
@@ -415,13 +412,6 @@ export function validateSequentialLayerGraph(
 
     outdegree.set(edge.source, (outdegree.get(edge.source) ?? 0) + 1);
     indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
-  }
-
-  if (nodes.length === 0) {
-    if (edges.length > 0) {
-      throw new Error("Remove dangling connections before training.");
-    }
-    return;
   }
 
   const inputConnections = outdegree.get(INPUT_NODE_ID) ?? 0;

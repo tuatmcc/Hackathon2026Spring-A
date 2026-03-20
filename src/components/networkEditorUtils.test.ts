@@ -184,6 +184,24 @@ describe("isValidLayerConnection", () => {
     ).toBe(true);
   });
 
+  it("ベクトル入力では input から output を直接接続できる", () => {
+    const nodes = createFixedNodes(vectorStage);
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "__input__",
+          target: "__output__",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        [],
+        vectorStage,
+      ),
+    ).toBe(true);
+  });
+
   it("再接続時は差し替え対象の既存エッジを無視して検証できる", () => {
     const nodes = [
       ...createFixedNodes(vectorStage),
@@ -213,6 +231,12 @@ describe("isValidLayerConnection", () => {
 });
 
 describe("validateSequentialLayerGraph", () => {
+  it("隠れ層がなくても input から output まで直結していれば許可する", () => {
+    const edges: Edge[] = [{ id: "e1", source: "__input__", target: "__output__" }];
+
+    expect(() => validateSequentialLayerGraph([], edges)).not.toThrow();
+  });
+
   it("input から output までの単一路を許可する", () => {
     const nodes = [createLayerNode("dense-1", "dense", 180)];
     const edges: Edge[] = [
@@ -245,6 +269,12 @@ describe("validateSequentialLayerGraph", () => {
     const edges: Edge[] = [{ id: "e1", source: "__input__", target: "dense-1" }];
 
     expect(() => validateSequentialLayerGraph(nodes, edges)).toThrow(
+      "Connect every layer in a single path from Input to Output before training.",
+    );
+  });
+
+  it("隠れ層がない場合でも input と output が未接続なら拒否する", () => {
+    expect(() => validateSequentialLayerGraph([], [])).toThrow(
       "Connect every layer in a single path from Input to Output before training.",
     );
   });
