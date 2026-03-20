@@ -14,16 +14,11 @@ import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData } from "../types";
 import { isFixedNodeId } from "./networkEditorUtils";
 import { FormNumberStepper } from "./FormNumberStepper";
+import { RichSelect } from "./RichSelect";
 
 interface Props {
   selectedNodeId: string | null;
   onDeleteNode: (nodeId: string) => void;
-}
-
-function blurSelectAfterInteraction(target: HTMLSelectElement) {
-  window.setTimeout(() => {
-    target.blur();
-  }, 0);
 }
 
 function getSkillDescription(skillId: string | null) {
@@ -258,31 +253,24 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
           <label className="layer-config__label" htmlFor="layer-activation">
             Function
           </label>
-          <div className="rich-control-shell rich-control-shell--select">
-            <select
-              id="layer-activation"
-              className="layer-config__select rich-control rich-control--select"
-              value={data.activation ?? ""}
-              onChange={(e) => {
-                updateNodeData(node.id, {
-                  activation: e.target.value || null,
-                });
-                blurSelectAfterInteraction(e.target);
-              }}
-              onKeyUp={(e) => {
-                if (e.key === "Enter" || e.key === "Escape" || e.key === " ") {
-                  blurSelectAfterInteraction(e.currentTarget);
-                }
-              }}
-            >
-              <option value="">none</option>
-              {availableActivations.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <RichSelect
+            id="layer-activation"
+            value={data.activation ?? ""}
+            onValueChange={(nextValue) =>
+              updateNodeData(node.id, {
+                activation: nextValue || null,
+              })
+            }
+            options={[
+              { value: "", label: "none" },
+              ...availableActivations.map((skill) => ({
+                value: skill.id,
+                label: skill.name,
+              })),
+            ]}
+            triggerClassName="layer-config__select-shell"
+            valueClassName="layer-config__select-value"
+          />
         </div>
         <div className="layer-config__hint">
           {activationDescription ?? "No activation selected. The layer output stays linear."}
@@ -298,31 +286,24 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
           <label className="layer-config__label" htmlFor="layer-regularization">
             Method
           </label>
-          <div className="rich-control-shell rich-control-shell--select">
-            <select
-              id="layer-regularization"
-              className="layer-config__select rich-control rich-control--select"
-              value={data.regularization ?? ""}
-              onChange={(e) => {
-                updateNodeData(node.id, {
-                  regularization: e.target.value || null,
-                });
-                blurSelectAfterInteraction(e.target);
-              }}
-              onKeyUp={(e) => {
-                if (e.key === "Enter" || e.key === "Escape" || e.key === " ") {
-                  blurSelectAfterInteraction(e.currentTarget);
-                }
-              }}
-            >
-              <option value="">none</option>
-              {availableRegularizations.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <RichSelect
+            id="layer-regularization"
+            value={data.regularization ?? ""}
+            onValueChange={(nextValue) =>
+              updateNodeData(node.id, {
+                regularization: nextValue || null,
+              })
+            }
+            options={[
+              { value: "", label: "none" },
+              ...availableRegularizations.map((skill) => ({
+                value: skill.id,
+                label: skill.name,
+              })),
+            ]}
+            triggerClassName="layer-config__select-shell"
+            valueClassName="layer-config__select-value"
+          />
         </div>
 
         <div className="layer-config__hint">
