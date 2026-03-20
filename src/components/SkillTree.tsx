@@ -6,7 +6,7 @@ import { useRef, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { SkillDef } from "../types";
 import { SteamParticles } from "./SteamParticles";
-import { groupByLevel } from "./skillTreeLayout";
+import { buildSkillTreeLayout } from "./skillTreeLayout";
 
 interface Props {
   title: string;
@@ -16,6 +16,16 @@ interface Props {
   onUnlock: (skillId: string) => void;
   onSkillClick?: (skillId: string) => void;
 }
+
+const NODE_WIDTH = 200;
+const COLUMN_GAP = 36;
+const ROW_STRIDE = 168;
+const CANVAS_TOP_PADDING = 18;
+const CANVAS_BOTTOM_PADDING = 28;
+const CANVAS_SIDE_PADDING = 20;
+const TITLE_BOTTOM_MARGIN = 30;
+const TITLE_HORIZONTAL_PADDING = 32;
+const MIN_TREE_WIDTH = 272;
 
 export function SkillTree({
   title,
@@ -30,182 +40,246 @@ export function SkillTree({
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
   const [positions, setPositions] = useState<Map<string, DOMRect>>(new Map());
   const [justUnlocked, setJustUnlocked] = useState<string | null>(null);
+  const layout = useMemo(() => buildSkillTreeLayout(skills), [skills]);
+
+  const canvasWidth = Math.max(
+    MIN_TREE_WIDTH,
+    layout.columnCount > 0
+      ? layout.columnCount * NODE_WIDTH +
+          Math.max(0, layout.columnCount - 1) * COLUMN_GAP +
+          CANVAS_SIDE_PADDING * 2
+      : MIN_TREE_WIDTH,
+  );
+  const canvasHeight =
+    layout.levelCount > 0
+      ? CANVAS_TOP_PADDING +
+        (layout.levelCount - 1) * ROW_STRIDE +
+        132 +
+        CANVAS_BOTTOM_PADDING
+      : 180;
 
   useLayoutEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
+    let frameId = 0;
+    const measure = () => {
       const nextContainerRect = containerRef.current?.getBoundingClientRect();
       if (!nextContainerRect) return;
-      const newPositions = new Map<string, DOMRect>();
-      skillRefs.current.forEach((el, id) => {
-        newPositions.set(id, el.getBoundingClientRect());
+
+      const nextPositions = new Map<string, DOMRect>();
+      skillRefs.current.forEach((element, id) => {
+        nextPositions.set(id, element.getBoundingClientRect());
       });
+
       setContainerRect(nextContainerRect);
-      setPositions(newPositions);
-    });
+      setPositions(nextPositions);
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    skillRefs.current.forEach((element) => resizeObserver.observe(element));
+    window.addEventListener("resize", scheduleMeasure);
 
     return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
       window.cancelAnimationFrame(frameId);
     };
-  }, [skills, points, unlockedSkills, justUnlocked]);
+  }, [skills, points, unlockedSkills, justUnlocked, canvasWidth, canvasHeight]);
 
-  const setSkillRef = useCallback((skillId: string) => (el: HTMLDivElement | null) => {
-    if (el) {
-      skillRefs.current.set(skillId, el);
-    } else {
-      skillRefs.current.delete(skillId);
-    }
-  }, []);
+  const setSkillRef = useCallback(
+    (skillId: string) => (element: HTMLDivElement | null) => {
+      if (element) {
+        skillRefs.current.set(skillId, element);
+      } else {
+        skillRefs.current.delete(skillId);
+      }
+    },
+    [],
+  );
 
   const isUnlocked = (id: string) => unlockedSkills.includes(id);
 
   const canUnlock = (skill: SkillDef) =>
     !isUnlocked(skill.id) &&
     points >= skill.cost &&
-    skill.dependencies.every((d) => unlockedSkills.includes(d));
+    skill.dependencies.every((dependencyId) =>
+      unlockedSkills.includes(dependencyId),
+    );
 
   const handleUnlock = (skillId: string) => {
+    const skill = skills.find((candidate) => candidate.id === skillId);
+    if (!skill || !canUnlock(skill)) {
+      return;
+    }
+
     onUnlock(skillId);
     setJustUnlocked(skillId);
     setTimeout(() => setJustUnlocked(null), 1500);
   };
 
-  const levels = groupByLevel(skills);
-  const lines = useMemo(() => {
+  const connectors = useMemo(() => {
     if (!containerRect) return [];
-    const nextLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+
+    const nextConnectors: { path: string }[] = [];
     skills.forEach((skill) => {
       const toRect = positions.get(skill.id);
       if (!toRect) return;
-      skill.dependencies.forEach((depId) => {
-        const fromRect = positions.get(depId);
+
+      skill.dependencies.forEach((dependencyId) => {
+        const fromRect = positions.get(dependencyId);
         if (!fromRect) return;
-        nextLines.push({
-          x1: fromRect.left + fromRect.width / 2 - containerRect.left,
-          y1: fromRect.bottom - containerRect.top,
-          x2: toRect.left + toRect.width / 2 - containerRect.left,
-          y2: toRect.top - containerRect.top,
+
+        const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
+        const y1 = fromRect.bottom - containerRect.top;
+        const x2 = toRect.left + toRect.width / 2 - containerRect.left;
+        const y2 = toRect.top - containerRect.top;
+        const midY = y1 + Math.max(24, (y2 - y1) / 2);
+
+        nextConnectors.push({
+          path: `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`,
         });
       });
     });
-    return nextLines;
+
+    return nextConnectors;
   }, [containerRect, positions, skills]);
 
   return (
-    <div ref={containerRef} style={treeContainerStyle}>
+    <div style={{ ...treeContainerStyle, width: canvasWidth }}>
       <div style={treeTitleStyle}>{title}</div>
-      <svg
+      <div
+        ref={containerRef}
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 1,
+          ...treeCanvasStyle,
+          width: canvasWidth,
+          height: canvasHeight,
         }}
       >
-        <defs>
-          <marker
-            id="arrowhead-brass"
-            markerWidth="10"
-            markerHeight="7"
-            refX="9"
-            refY="3.5"
-            orient="auto"
-          >
-            <polygon points="0 0, 10 3.5, 0 7" fill="#8b4513" />
-          </marker>
-        </defs>
-        {lines.map((line, i) => (
-          <line
-            key={i}
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-            stroke="#8b4513"
-            strokeWidth="2"
-            markerEnd="url(#arrowhead-brass)"
-          />
-        ))}
-      </svg>
-      <div style={levelsContainerStyle}>
-        {levels.map((levelSkills) => (
-          <div key={levelSkills[0]?.id} style={tierStyle}>
-            {levelSkills.map((skill) => {
-              const unlocked = isUnlocked(skill.id);
-              const canBuy = canUnlock(skill);
-              const flashing = justUnlocked === skill.id;
-              return (
-                <div
-                  key={skill.id}
-                  ref={setSkillRef(skill.id)}
-                  onClick={() => onSkillClick?.(skill.id)}
-                  style={{
-                    ...nodeStyle,
-                    ...(unlocked ? unlockedNodeStyle : lockedNodeStyle),
-                    ...(flashing ? flashStyle : {}),
-                    ...(unlocked && !flashing ? unlockedIdleStyle : {}),
-                  }}
-                >
-                  {flashing && (
-                    <SteamParticles active kind="unlock" count={25} duration={1200} />
-                  )}
-                  {!unlocked && (
-                    <div style={lockIconStyle}>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#b58921" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                      </svg>
-                    </div>
-                  )}
-                  <strong style={{
-                    fontSize: 12,
-                    color: unlocked ? "#3fb950" : "var(--text-h)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  }}>
-                    {skill.name}
-                  </strong>
-                  <div style={{
-                    fontSize: 10,
-                    color: unlocked ? "#2d8a44" : "var(--text)",
-                    marginTop: 2,
-                    lineHeight: 1.4,
-                  }}>
-                    {skill.description}
-                  </div>
-                  {skill.cost > 0 && !unlocked && (
-                    <div style={costStyle}>Cost: {skill.cost}pt</div>
-                  )}
-                  {unlocked ? (
-                    <div style={unlockedBadgeStyle}>Unlocked</div>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleUnlock(skill.id);
-                      }}
-                      disabled={!canBuy}
-                      style={unlockButtonStyle(canBuy)}
-                    >
-                      Unlock
-                    </button>
-                  )}
+        <svg style={connectorLayerStyle}>
+          <defs>
+            <marker
+              id="arrowhead-brass"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#8b4513" />
+            </marker>
+          </defs>
+          {connectors.map((connector, index) => (
+            <path
+              key={`glow-${index}`}
+              d={connector.path}
+              fill="none"
+              stroke="rgba(181, 137, 33, 0.32)"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+          {connectors.map((connector, index) => (
+            <path
+              key={`path-${index}`}
+              d={connector.path}
+              fill="none"
+              stroke="#8b4513"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              markerEnd="url(#arrowhead-brass)"
+              style={{
+                filter: "drop-shadow(0 0 3px rgba(181, 137, 33, 0.16))",
+              }}
+            />
+          ))}
+        </svg>
+
+        {skills.map((skill) => {
+          const unlocked = isUnlocked(skill.id);
+          const canBuy = canUnlock(skill);
+          const flashing = justUnlocked === skill.id;
+          const position = layout.positions.get(skill.id);
+          if (!position) {
+            return null;
+          }
+
+          return (
+            <div
+              key={skill.id}
+              ref={setSkillRef(skill.id)}
+              onClick={() => onSkillClick?.(skill.id)}
+              style={{
+                ...nodeStyle,
+                left:
+                  CANVAS_SIDE_PADDING +
+                  NODE_WIDTH / 2 +
+                  position.column * (NODE_WIDTH + COLUMN_GAP),
+                top: CANVAS_TOP_PADDING + position.level * ROW_STRIDE,
+                ...(unlocked ? unlockedNodeStyle : lockedNodeStyle),
+                ...(flashing ? flashStyle : {}),
+                ...(unlocked && !flashing ? unlockedIdleStyle : {}),
+              }}
+            >
+              {flashing && (
+                <SteamParticles active kind="unlock" count={25} duration={1200} />
+              )}
+              {!unlocked && (
+                <div style={lockIconStyle}>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="#b58921"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
                 </div>
-              );
-            })}
-          </div>
-        ))}
+              )}
+              <strong style={nodeTitleStyle(unlocked)}>{skill.name}</strong>
+              <div style={nodeDescriptionStyle(unlocked)}>{skill.description}</div>
+              {skill.cost > 0 && !unlocked && (
+                <div style={costStyle}>Cost: {skill.cost}pt</div>
+              )}
+              {unlocked ? (
+                <div style={unlockedBadgeStyle}>Unlocked</div>
+              ) : (
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleUnlock(skill.id);
+                  }}
+                  disabled={!canBuy}
+                  style={unlockButtonStyle(canBuy)}
+                >
+                  Unlock
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 const treeContainerStyle: CSSProperties = {
-  padding: 12,
   position: "relative",
-  minWidth: 260,
+  padding: "12px 0 12px 12px",
 };
 
 const treeTitleStyle: CSSProperties = {
@@ -218,33 +292,39 @@ const treeTitleStyle: CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.12em",
   fontSize: 11,
-  marginBottom: 48,
+  marginBottom: TITLE_BOTTOM_MARGIN,
+  width: `calc(100% - ${TITLE_HORIZONTAL_PADDING}px)`,
+  marginLeft: TITLE_HORIZONTAL_PADDING / 2,
+  boxSizing: "border-box",
 };
 
-const levelsContainerStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 80,
+const treeCanvasStyle: CSSProperties = {
   position: "relative",
-  zIndex: 2,
+  minHeight: 180,
 };
 
-const tierStyle: CSSProperties = {
-  display: "flex",
-  gap: 12,
-  justifyContent: "center",
+const connectorLayerStyle: CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  pointerEvents: "none",
+  zIndex: 1,
 };
 
 const nodeStyle: CSSProperties = {
-  width: 200,
+  width: NODE_WIDTH,
   padding: 12,
   textAlign: "center",
-  position: "relative",
+  position: "absolute",
   cursor: "pointer",
   border: "2px solid",
   boxShadow: "4px 4px 0 var(--iron)",
   transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
   overflow: "hidden",
+  transform: "translateX(-50%)",
+  zIndex: 2,
 };
 
 const unlockedNodeStyle: CSSProperties = {
@@ -260,14 +340,16 @@ const unlockedIdleStyle: CSSProperties = {
 const lockedNodeStyle: CSSProperties = {
   borderColor: "var(--border)",
   background: "var(--bg-surface)",
-  backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)",
+  backgroundImage:
+    "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)",
   opacity: 0.85,
 };
 
 const flashStyle: CSSProperties = {
   animation: "pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
   borderColor: "#5adb78",
-  boxShadow: "0 0 20px rgba(63, 185, 80, 0.4), 4px 4px 0 rgba(63, 185, 80, 0.5)",
+  boxShadow:
+    "0 0 20px rgba(63, 185, 80, 0.4), 4px 4px 0 rgba(63, 185, 80, 0.5)",
 };
 
 const lockIconStyle: CSSProperties = {
@@ -304,6 +386,25 @@ const unlockedBadgeStyle: CSSProperties = {
   background: "rgba(63, 185, 80, 0.08)",
   display: "inline-block",
 };
+
+function nodeTitleStyle(unlocked: boolean): CSSProperties {
+  return {
+    display: "block",
+    fontSize: 12,
+    color: unlocked ? "#3fb950" : "var(--text-h)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  };
+}
+
+function nodeDescriptionStyle(unlocked: boolean): CSSProperties {
+  return {
+    fontSize: 10,
+    color: unlocked ? "#2d8a44" : "var(--text)",
+    marginTop: 2,
+    lineHeight: 1.4,
+  };
+}
 
 function unlockButtonStyle(canBuy: boolean): CSSProperties {
   return {

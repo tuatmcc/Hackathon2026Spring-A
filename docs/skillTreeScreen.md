@@ -54,8 +54,8 @@
 | `model_params_cap_512` | 総パラメータ上限 512 | 70 | model_params_cap_256 |
 | `model_params_cap_1024` | 総パラメータ上限 1024 | 110 | model_params_cap_512 |
 | `model_params_cap_4096` | 総パラメータ上限 4096 | 180 | model_params_cap_1024 |
-| `conv2d` | 畳み込み層 (Conv2D) | 300 | dense |
-| `flatten` | Flatten | 100 | conv2d |
+| `flatten` | Flatten | 80 | dense |
+| `conv2d` | 畳み込み層 (Conv2D) | 180 | flatten |
 
 ### 活性化関数ツリー (`treeId: "activation"`)
 
@@ -76,9 +76,9 @@
 
 | スキルID | 名前 | コスト | 前提 |
 |---|---|---|---|
-| `dropout` | Dropout | 150 | なし |
-| `l2` | L2正則化 | 100 | なし |
-| `l1` | L1正則化 | 100 | なし |
+| `l2` | L2正則化 | 90 | なし |
+| `dropout` | Dropout | 120 | l2 |
+| `l1` | L1正則化 | 120 | l2 |
 
 ## スキルの仕組み
 
