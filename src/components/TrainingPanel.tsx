@@ -20,12 +20,19 @@ import type { TrainingMetrics, TrainingStatus } from "../types";
 import { SteamParticles } from "./SteamParticles";
 import { sortLayerNodesTopologically } from "./networkEditorUtils";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
+import { FormNumberStepper } from "./FormNumberStepper";
 
 const CHART_WIDTH = 100;
 const CHART_HEIGHT = 56;
 const TRAIN_LINE_COLOR = "#b87333";
 const VALIDATION_LINE_COLOR = "#b58921";
 const TARGET_LINE_COLOR = "#3fb950";
+
+function blurSelectAfterInteraction(target: HTMLSelectElement) {
+  window.setTimeout(() => {
+    target.blur();
+  }, 0);
+}
 
 export function TrainingPanel() {
   const currentStageIndex = useGameStore((s) => s.currentStageIndex);
@@ -124,54 +131,62 @@ export function TrainingPanel() {
       <div style={controlsGridStyle}>
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Optimizer</span>
-          <select
-            value={selectedOptimizer}
-            onChange={(e) => setSelectedOptimizer(e.target.value)}
-            disabled={trainingStatus === "training"}
-            style={inputStyle}
-          >
-            {availableOptimizers.map((skill) => (
-              <option key={skill.id} value={skill.id}>
-                {skill.name}
-              </option>
-            ))}
-          </select>
+          <div className="rich-control-shell rich-control-shell--select">
+            <select
+              value={selectedOptimizer}
+              onChange={(e) => {
+                setSelectedOptimizer(e.target.value);
+                blurSelectAfterInteraction(e.target);
+              }}
+              onKeyUp={(e) => {
+                if (e.key === "Enter" || e.key === "Escape" || e.key === " ") {
+                  blurSelectAfterInteraction(e.currentTarget);
+                }
+              }}
+              disabled={trainingStatus === "training"}
+              className="rich-control rich-control--select"
+              style={inputStyle}
+            >
+              {availableOptimizers.map((skill) => (
+                <option key={skill.id} value={skill.id}>
+                  {skill.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </label>
 
         <label style={controlStyle}>
           <span style={controlLabelStyle}>LR</span>
-          <input
-            type="number"
+          <FormNumberStepper
             value={learningRate}
             min={0.0001}
             step={0.001}
-            onChange={(e) => setLearningRate(Number(e.target.value))}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
+            onChange={setLearningRate}
+            inputClassName="rich-control rich-control--number"
           />
         </label>
 
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Batch</span>
-          <input
-            type="number"
+          <FormNumberStepper
             value={batchSize}
             min={1}
-            onChange={(e) => setBatchSize(Number(e.target.value))}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
+            onChange={setBatchSize}
+            inputClassName="rich-control rich-control--number"
           />
         </label>
 
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Epochs</span>
-          <input
-            type="number"
+          <FormNumberStepper
             value={epochs}
             min={1}
-            onChange={(e) => setEpochs(Number(e.target.value))}
             disabled={trainingStatus === "training"}
-            style={inputStyle}
+            onChange={setEpochs}
+            inputClassName="rich-control rich-control--number"
           />
         </label>
       </div>
@@ -474,12 +489,13 @@ const controlLabelStyle: CSSProperties = {
 const inputStyle: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "5px 8px",
-  border: "1px solid var(--accent-border)",
-  background: "#000",
-  color: "var(--brass)",
+  padding: "8px 10px",
+  border: "none",
+  background: "transparent",
+  color: "var(--paper-light)",
   fontWeight: 700,
   fontSize: 11,
+  outline: "none",
 };
 
 function startButtonStyle(status: TrainingStatus): CSSProperties {
