@@ -54,7 +54,7 @@ export function TitleScreen({
     <div className="screen-overlay screen-overlay--title">
       <div className="screen-panel screen-panel--title">
         <div className="screen-kicker">Neural Network Strategy Game</div>
-        <h2 className="screen-title">NN Roguelike</h2>
+        <h2 className="screen-title"><span className="logo-highlight">N</span>ode×<span className="logo-highlight">N</span>ode</h2>
         <p className="screen-lead">
           スキルを解放し、ネットワークを組み、学習を回してステージを突破する。
           TensorFlow Playground 風の構築体験を、進行付きゲームとして遊べます。
