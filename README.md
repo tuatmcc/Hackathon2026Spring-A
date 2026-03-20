@@ -79,3 +79,8 @@ https://archive.ics.uci.edu/dataset/80/optical+recognition+of+handwritten+digits
 
 License:
 - CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Changes made in this project:
+- exported to JSON for browser use
+- normalized pixel values from 0-16 to 0-1
+- used as 8x8 grayscale image data for in-browser training and visualization
