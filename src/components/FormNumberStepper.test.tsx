@@ -3,7 +3,11 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { FormNumberStepper } from "./FormNumberStepper";
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("FormNumberStepper", () => {
   afterEach(() => {
