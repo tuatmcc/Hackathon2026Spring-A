@@ -65,3 +65,17 @@ localStorage に進捗のみ保存。モデルの重みは保存しない。
 | 可視化 | `components/DataVisualization.tsx`, `TrainingPanel.tsx` (グラフ) | `StageDef`, `TrainingMetrics` |
 | スキルツリー | `components/SkillTree.tsx`, `pages/SkillTreePage.tsx` | `SkillDef` |
 | コンテンツ | `config/skills.ts`, `config/stages.ts` | `SkillDef`, `StageDef` |
+
+
+## Data Attribution
+
+This project includes a processed version of the "Optical Recognition of Handwritten Digits" dataset by E.
+Alpaydin and C. Kaynak, provided via the UCI Machine Learning Repository.
+
+Source:
+- UCI Machine Learning Repository:
+https://archive.ics.uci.edu/dataset/80/optical+recognition+of+handwritten+digits
+- DOI: https://doi.org/10.24432/C50P49
+
+License:
+- CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
