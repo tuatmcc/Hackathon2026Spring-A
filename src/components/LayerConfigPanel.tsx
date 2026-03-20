@@ -184,7 +184,7 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
                 text={
                   isConvLayer
                     ? "Controls the number of convolution filters. More filters can capture richer image features, but increase model size."
-                    : "Controls layer width. Dense widths unlock in steps up to 2, 4, 6, and 8 units."
+                    : "Controls layer width. Dense widths unlock in stages up to 2, 4, 6, 8, 10, and 12 units."
                 }
               />
             </label>

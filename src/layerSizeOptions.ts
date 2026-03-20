@@ -1,23 +1,25 @@
 import type { LayerNodeData } from "./types";
 
 export const DENSE_BASE_UNIT_OPTIONS = [1, 2] as const;
-export const MAX_DENSE_UNITS = 8;
+export const MAX_DENSE_UNITS = 12;
 export const CONV_FILTER_OPTIONS = [4, 8, 12, 16, 24, 32] as const;
 
 export const DENSE_WIDTH_SKILL_OPTIONS = [
   { skillId: "dense_width_cap_4", value: 4 },
   { skillId: "dense_width_cap_6", value: 6 },
   { skillId: "dense_width_cap_8", value: 8 },
+  { skillId: "dense_width_cap_10", value: 10 },
+  { skillId: "dense_width_cap_12", value: 12 },
 ] as const;
 
-const legacyDenseWidthSkillIds = [
-  "dense_width_8",
-  "dense_width_16",
-  "dense_width_24",
-  "dense_width_32",
-  "dense_width_64",
-  "dense_width_128",
-  "dense_width_256",
+const legacyDenseWidthSkillOptions = [
+  { skillId: "dense_width_8", value: 8 },
+  { skillId: "dense_width_16", value: 16 },
+  { skillId: "dense_width_24", value: 24 },
+  { skillId: "dense_width_32", value: 32 },
+  { skillId: "dense_width_64", value: 64 },
+  { skillId: "dense_width_128", value: 128 },
+  { skillId: "dense_width_256", value: 256 },
 ] as const;
 
 const layerNodeSkillIds = new Set(["dense", "conv2d", "flatten"]);
@@ -35,8 +37,10 @@ export function getDenseUnitCap(unlockedSkills: string[]) {
     }
   }
 
-  if (legacyDenseWidthSkillIds.some((skillId) => unlockedSkills.includes(skillId))) {
-    maxUnits = MAX_DENSE_UNITS;
+  for (const { skillId, value } of legacyDenseWidthSkillOptions) {
+    if (unlockedSkills.includes(skillId)) {
+      maxUnits = Math.max(maxUnits, Math.min(value, MAX_DENSE_UNITS));
+    }
   }
 
   return Math.min(maxUnits, MAX_DENSE_UNITS);

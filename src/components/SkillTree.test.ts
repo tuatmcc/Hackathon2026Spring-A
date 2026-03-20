@@ -14,8 +14,8 @@ describe("groupByLevel", () => {
       ["dense_width_cap_4", "model_params_cap_32", "flatten"],
       ["dense_width_cap_6", "model_params_cap_64", "conv2d"],
       ["dense_width_cap_8", "model_params_cap_128"],
-      ["model_params_cap_256"],
-      ["model_params_cap_512"],
+      ["dense_width_cap_10", "model_params_cap_256"],
+      ["dense_width_cap_12", "model_params_cap_512"],
       ["model_params_cap_1024"],
       ["model_params_cap_4096"],
     ]);
