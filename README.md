@@ -10,6 +10,14 @@ npm install
 npm run dev
 ```
 
+## GitHub Pages
+
+`main` への push で GitHub Pages に自動デプロイされるよう、`.github/workflows/deploy-pages.yml` を追加しています。
+
+リポジトリの GitHub 側設定では、`Settings -> Pages -> Build and deployment -> Source` を `GitHub Actions` にしてください。
+
+公開 URL は `https://tuatmcc.github.io/Hackathon2026Spring-A/` です。リポジトリ名を変更した場合は、`vite.config.ts` のフォールバック値も合わせて更新してください。
+
 ## 技術スタック
 
 | カテゴリ | 技術 |
@@ -57,3 +65,22 @@ localStorage に進捗のみ保存。モデルの重みは保存しない。
 | 可視化 | `components/DataVisualization.tsx`, `TrainingPanel.tsx` (グラフ) | `StageDef`, `TrainingMetrics` |
 | スキルツリー | `components/SkillTree.tsx`, `pages/SkillTreePage.tsx` | `SkillDef` |
 | コンテンツ | `config/skills.ts`, `config/stages.ts` | `SkillDef`, `StageDef` |
+
+
+## Data Attribution
+
+This project includes a processed version of the "Optical Recognition of Handwritten Digits" dataset by E.
+Alpaydin and C. Kaynak, provided via the UCI Machine Learning Repository.
+
+Source:
+- UCI Machine Learning Repository:
+https://archive.ics.uci.edu/dataset/80/optical+recognition+of+handwritten+digits
+- DOI: https://doi.org/10.24432/C50P49
+
+License:
+- CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Changes made in this project:
+- exported to JSON for browser use
+- normalized pixel values from 0-16 to 0-1
+- used as 8x8 grayscale image data for in-browser training and visualization
