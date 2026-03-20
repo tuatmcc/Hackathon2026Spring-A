@@ -78,6 +78,7 @@ App ──────┤
                  ├── TrainingPanel
                  │     └── optimizer / lr / batchSize / epochs を編集
                  │         optimizer の選択肢は unlockedSkills でフィルタ
+                 │         総パラメータ数 / 上限も表示
                  │         「Start Training」ボタン → onStartTraining
                  │
                  ├── DataVisualization
@@ -223,6 +224,7 @@ App ──────┤
 | スキルID (= `SkillDef.id`) | 何に対応するか | 誰がチェックするか |
 |---|---|---|
 | `"dense"`, `"conv2d"`, `"flatten"` | `LayerNodeData.layerType` | NodePalette（表示制限） |
+| `"model_params_cap_32"` など | モデル全体の総パラメータ数の上限 | `TrainingPanel` / `playStore.startTraining()` |
 | `"relu"`, `"sigmoid"`, `"gelu"` | `LayerNodeData.activation` | LayerConfigPanel（選択肢フィルタ） |
 | `"sgd"`, `"adam"` | `playStore.selectedOptimizer` | TrainingPanel（選択肢フィルタ） |
 | `"dropout"`, `"l1"`, `"l2"` | `LayerNodeData.regularization` | LayerConfigPanel（選択肢フィルタ） |

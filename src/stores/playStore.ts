@@ -8,6 +8,7 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
+  reconnectEdge,
 } from "@xyflow/react";
 import type {
   Node,
@@ -22,23 +23,28 @@ import type {
   TrainingMetrics,
   TrainingStatus,
 } from "../types";
-import type {
-  DecisionBoundarySnapshot,
-  SerializedDataset,
-} from "../types/visualizationTypes";
 import { STAGE_DATA } from "../config/stages";
+import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "./gameStore";
+import { useVisualizerStore } from "./visualizerStore";
 import { buildModel } from "../ml/buildModel";
-import { getDatasetGenerator, getAsyncDatasetLoader, isAsyncDataset } from "../ml/datasets";
+import type { TrainResult } from "../ml/trainer";
 import { trainModel } from "../ml/trainer";
 import {
-  createDecisionBoundarySnapshot,
+  createVisualizationSnapshot,
   deserializeDataset,
-  serializeDataset,
 } from "../ml/visualization";
+import {
+  sortLayerNodesTopologically,
+  validateSequentialLayerGraph,
+} from "../components/networkEditorUtils";
+import { deriveSeed } from "../ml/random";
+import { sanitizeLayerNodeData } from "../layerSizeOptions";
+import { getModelParameterCap } from "../ml/modelParameterBudget";
 
 interface PlayStore {
   // --- グラフ（見た目の情報）---
+  fixedNodes: Node[];
   nodes: Node<LayerNodeData>[];
   edges: Edge[];
 
@@ -51,40 +57,47 @@ interface PlayStore {
   // --- 学習状態 ---
   trainingStatus: TrainingStatus;
   metrics: TrainingMetrics[];
-  visualizationStageId: string | null;
-  datasetPreview: SerializedDataset | null;
-  boundarySnapshot: DecisionBoundarySnapshot | null;
   activeTrainingRunId: number | null;
   nextTrainingRunId: number;
+  lastTrainingResult: TrainResult | null;
+  pendingStageClearId: string | null;
+  pendingStageClearRewardPoints: number;
+  configuredStageId: string | null;
+  trainingErrorMessage: string | null;
 
   // --- グラフ操作 ---
   onNodesChange: (changes: NodeChange[]) => void;
+  onFixedNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
+  initializeFixedNodes: () => void;
   onConnect: (connection: Connection) => void;
+  onReconnect: (oldEdge: Edge, connection: Connection) => void;
   addNode: (node: Node<LayerNodeData>) => void;
   updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) => void;
+  removeNode: (nodeId: string) => void;
 
   // --- 学習条件操作 ---
   setSelectedOptimizer: (id: string) => void;
   setLearningRate: (lr: number) => void;
   setBatchSize: (bs: number) => void;
   setEpochs: (epochs: number) => void;
+  syncStageTrainingSettings: (stage: StageDef, unlockedSkills: string[]) => void;
 
 // --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) => void;
   addMetrics: (m: TrainingMetrics) => void;
   resetTrainingState: () => void;
-  prepareVisualization: (stage: StageDef | null) => Promise<SerializedDataset | null>;
-  setBoundarySnapshot: (snapshot: DecisionBoundarySnapshot | null) => void;
   beginTrainingRun: () => number;
   isTrainingRunCurrent: (runId: number) => boolean;
   startTraining: () => Promise<void>;
+  dismissStageClearPopup: () => void;
 
   // --- リセット ---
   resetPlay: () => void;
 }
 
 const initialState = {
+  fixedNodes: [] as Node[],
   nodes: [] as Node<LayerNodeData>[],
   edges: [] as Edge[],
   selectedOptimizer: "sgd",
@@ -93,29 +106,103 @@ const initialState = {
   epochs: 50,
   trainingStatus: "idle" as TrainingStatus,
   metrics: [] as TrainingMetrics[],
-  visualizationStageId: null as string | null,
-  datasetPreview: null as SerializedDataset | null,
-  boundarySnapshot: null as DecisionBoundarySnapshot | null,
   activeTrainingRunId: null as number | null,
   nextTrainingRunId: 0,
+  lastTrainingResult: null as TrainResult | null,
+  pendingStageClearId: null as string | null,
+  pendingStageClearRewardPoints: 0,
+  configuredStageId: null as string | null,
+  trainingErrorMessage: null as string | null,
 };
+
+const optimizerSkillIds = SKILL_DATA
+  .filter((skill) => skill.treeId === "optimizer")
+  .map((skill) => skill.id);
+
+function getAvailableOptimizerIds(unlockedSkills: string[]) {
+  return optimizerSkillIds.filter((skillId) => unlockedSkills.includes(skillId));
+}
 
 export const usePlayStore = create<PlayStore>()((set, get) => ({
   ...initialState,
 
   // --- グラフ操作 ---
+  initializeFixedNodes: () => {
+    const existingIds = new Set(get().fixedNodes.map((node) => node.id));
+    if (existingIds.has("__input__") && existingIds.has("__output__")) {
+      return;
+    }
+
+    set({
+      fixedNodes: [
+        {
+          id: "__input__",
+          type: "fixedNode",
+          position: { x: 0, y: 150 },
+          data: {},
+          selectable: true,
+          deletable: false,
+        },
+        {
+          id: "__output__",
+          type: "fixedNode",
+          position: { x: 600, y: 150 },
+          data: {},
+          selectable: true,
+          deletable: false,
+        },
+      ],
+    });
+  },
   onNodesChange: (changes: NodeChange[]) =>
     set({ nodes: applyNodeChanges(changes, get().nodes) as Node<LayerNodeData>[] }),
+  onFixedNodesChange: (changes: NodeChange[]) =>
+    set({
+      fixedNodes: applyNodeChanges(
+        changes,
+        get().fixedNodes,
+      ).filter((node) => node.id === "__input__" || node.id === "__output__"),
+    }),
   onEdgesChange: (changes: EdgeChange[]) =>
     set({ edges: applyEdgeChanges(changes, get().edges) }),
   onConnect: (connection: Connection) =>
     set({ edges: addEdge(connection, get().edges) }),
-  addNode: (node: Node<LayerNodeData>) =>
-    set((s) => ({ nodes: [...s.nodes, node] })),
-  updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) =>
+  onReconnect: (oldEdge: Edge, connection: Connection) =>
+    set({
+      edges: reconnectEdge(oldEdge, connection, get().edges, {
+        shouldReplaceId: false,
+      }),
+    }),
+  addNode: (node: Node<LayerNodeData>) => {
+    const unlockedSkills = useGameStore.getState().unlockedSkills;
+    set((s) => ({
+      nodes: [
+        ...s.nodes,
+        {
+          ...node,
+          data: sanitizeLayerNodeData(node.data, unlockedSkills),
+        },
+      ],
+    }));
+  },
+  updateNodeData: (nodeId: string, data: Partial<LayerNodeData>) => {
+    const unlockedSkills = useGameStore.getState().unlockedSkills;
     set((s) => ({
       nodes: s.nodes.map((n) =>
-        n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n,
+        n.id === nodeId
+          ? {
+              ...n,
+              data: sanitizeLayerNodeData({ ...n.data, ...data }, unlockedSkills),
+            }
+          : n,
+      ),
+    }));
+  },
+  removeNode: (nodeId: string) =>
+    set((state) => ({
+      nodes: state.nodes.filter((node) => node.id !== nodeId),
+      edges: state.edges.filter(
+        (edge) => edge.source !== nodeId && edge.target !== nodeId,
       ),
     })),
 
@@ -124,6 +211,42 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   setLearningRate: (lr: number) => set({ learningRate: lr }),
   setBatchSize: (bs: number) => set({ batchSize: bs }),
   setEpochs: (epochs: number) => set({ epochs }),
+  syncStageTrainingSettings: (stage, unlockedSkills) =>
+    set((state) => {
+      const stageChanged = state.configuredStageId !== stage.id;
+      const availableOptimizerIds = getAvailableOptimizerIds(unlockedSkills);
+      const recommendedOptimizer = stage.trainingPreset?.recommendedOptimizer;
+      const preferredOptimizer =
+        recommendedOptimizer && availableOptimizerIds.includes(recommendedOptimizer)
+          ? recommendedOptimizer
+          : availableOptimizerIds[0] ?? state.selectedOptimizer;
+
+      const nextState: Partial<PlayStore> = {};
+
+      if (stageChanged) {
+        nextState.configuredStageId = stage.id;
+        nextState.learningRate =
+          stage.trainingPreset?.learningRate ?? state.learningRate;
+        nextState.batchSize = stage.trainingPreset?.batchSize ?? state.batchSize;
+        nextState.epochs = stage.trainingPreset?.epochs ?? state.epochs;
+        nextState.trainingStatus = initialState.trainingStatus;
+        nextState.metrics = [];
+        nextState.activeTrainingRunId = null;
+        nextState.lastTrainingResult = null;
+        nextState.pendingStageClearId = null;
+        nextState.pendingStageClearRewardPoints = 0;
+        nextState.trainingErrorMessage = null;
+      }
+
+      if (
+        !availableOptimizerIds.includes(state.selectedOptimizer) ||
+        (stageChanged && preferredOptimizer !== state.selectedOptimizer)
+      ) {
+        nextState.selectedOptimizer = preferredOptimizer;
+      }
+
+      return Object.keys(nextState).length > 0 ? nextState : state;
+    }),
 
   // --- 学習状態操作 ---
   setTrainingStatus: (status: TrainingStatus) =>
@@ -134,58 +257,11 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     set({
       trainingStatus: initialState.trainingStatus,
       metrics: initialState.metrics,
+      lastTrainingResult: initialState.lastTrainingResult,
+      pendingStageClearId: initialState.pendingStageClearId,
+      pendingStageClearRewardPoints: initialState.pendingStageClearRewardPoints,
+      trainingErrorMessage: initialState.trainingErrorMessage,
     }),
-  prepareVisualization: async (stage: StageDef | null) => {
-    if (!stage) {
-      set({
-        visualizationStageId: null,
-        datasetPreview: null,
-        boundarySnapshot: null,
-        trainingStatus: initialState.trainingStatus,
-        metrics: initialState.metrics,
-        activeTrainingRunId: null,
-      });
-      return null;
-    }
-
-    const current = get();
-    if (
-      current.visualizationStageId === stage.id &&
-      current.datasetPreview != null
-    ) {
-      return current.datasetPreview;
-    }
-
-    let rawDataset;
-    try {
-      if (isAsyncDataset(stage.datasetId)) {
-        const loader = getAsyncDatasetLoader(stage.datasetId);
-        if (!loader) {
-          console.error(`No loader for async dataset: ${stage.datasetId}`);
-          return null;
-        }
-        rawDataset = await loader();
-      } else {
-        rawDataset = getDatasetGenerator(stage.datasetId)();
-      }
-
-      const datasetPreview = serializeDataset(rawDataset, stage);
-      set({
-        visualizationStageId: stage.id,
-        datasetPreview,
-        boundarySnapshot: null,
-        trainingStatus: initialState.trainingStatus,
-        metrics: initialState.metrics,
-        activeTrainingRunId: null,
-      });
-      return datasetPreview;
-    } finally {
-      rawDataset?.xs.dispose();
-      rawDataset?.ys.dispose();
-    }
-  },
-  setBoundarySnapshot: (snapshot: DecisionBoundarySnapshot | null) =>
-    set({ boundarySnapshot: snapshot }),
   beginTrainingRun: () => {
     const runId = get().nextTrainingRunId + 1;
     set({
@@ -196,15 +272,61 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   },
   isTrainingRunCurrent: (runId: number) =>
     get().activeTrainingRunId === runId,
+  dismissStageClearPopup: () =>
+    set({
+      pendingStageClearId: null,
+      pendingStageClearRewardPoints: 0,
+    }),
   startTraining: async () => {
     const { currentStageIndex, addPoints, clearStage } = useGameStore.getState();
     const stage = STAGE_DATA[currentStageIndex];
     if (!stage) return;
+    const unlockedSkills = useGameStore.getState().unlockedSkills;
 
-    const datasetPreview = await get().prepareVisualization(stage);
-    if (!datasetPreview) return;
+    const { nodes, edges, selectedOptimizer, learningRate, epochs, batchSize } = get();
+    let sortedNodes = nodes;
+
+    try {
+      validateSequentialLayerGraph(nodes, edges);
+      sortedNodes =
+        edges.length > 0 && nodes.length > 1
+          ? sortLayerNodesTopologically(nodes, edges)
+          : nodes;
+    } catch (error) {
+      set({
+        trainingStatus: "failed",
+        metrics: [],
+        activeTrainingRunId: null,
+        lastTrainingResult: null,
+        pendingStageClearId: null,
+        trainingErrorMessage:
+          error instanceof Error ? error.message : "Training failed.",
+      });
+      return;
+    }
+
+    const layers: LayerNodeData[] = sortedNodes.map((node) =>
+      sanitizeLayerNodeData(node.data, unlockedSkills),
+    );
+    const maxParameters = getModelParameterCap(unlockedSkills);
+
+    const visualizerStore = useVisualizerStore.getState();
+    const datasetPreview = await visualizerStore.prepareVisualization(stage);
+    if (!datasetPreview) {
+      set({
+        trainingStatus: "failed",
+        metrics: [],
+        activeTrainingRunId: null,
+        lastTrainingResult: null,
+        pendingStageClearId: null,
+        pendingStageClearRewardPoints: 0,
+        trainingErrorMessage: "Failed to prepare the dataset.",
+      });
+      return;
+    }
 
     const runId = get().beginTrainingRun();
+    const trainingSeed = deriveSeed(currentStageIndex + 1, runId);
     get().resetTrainingState();
     set({ trainingStatus: "training" });
 
@@ -212,34 +334,35 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     let model: ReturnType<typeof buildModel> | null = null;
 
     try {
-      const { nodes, selectedOptimizer, learningRate, epochs, batchSize } = get();
-      const layers: LayerNodeData[] = nodes.map((node) => node.data);
       const activeModel = buildModel(
         layers,
         stage,
         selectedOptimizer,
         learningRate,
+        trainingSeed,
+        { maxParameters },
       );
       model = activeModel;
 
       dataset = deserializeDataset(datasetPreview);
       if (get().isTrainingRunCurrent(runId)) {
-        get().setBoundarySnapshot(
-          createDecisionBoundarySnapshot(activeModel, stage, { epoch: 0 }),
+        visualizerStore.setVisualizationSnapshot(
+          createVisualizationSnapshot(activeModel, dataset, stage, { epoch: 0 }),
         );
       }
 
       const result = await trainModel(activeModel, dataset, {
         epochs,
         batchSize,
+        seed: trainingSeed,
         onEpochEnd: (metrics) => {
           if (!get().isTrainingRunCurrent(runId)) {
             return;
           }
 
           get().addMetrics(metrics);
-          get().setBoundarySnapshot(
-            createDecisionBoundarySnapshot(activeModel, stage, {
+          visualizerStore.setVisualizationSnapshot(
+            createVisualizationSnapshot(activeModel, dataset!, stage, {
               epoch: metrics.epoch + 1,
             }),
           );
@@ -250,22 +373,48 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         return;
       }
 
-      get().setBoundarySnapshot(
-        createDecisionBoundarySnapshot(activeModel, stage, { epoch: epochs }),
+      visualizerStore.setVisualizationSnapshot(
+        createVisualizationSnapshot(activeModel, dataset, stage, { epoch: epochs }),
       );
 
-      const accuracy = result.finalAccuracy ?? 0;
-      if (accuracy >= stage.targetAccuracy) {
-        clearStage(stage.id);
-        addPoints(stage.rewardPoints);
-        set({ trainingStatus: "completed" });
+      const cleared =
+        stage.taskType === "regression"
+          ? result.finalLoss <= (stage.targetLoss ?? Number.POSITIVE_INFINITY)
+          : (result.finalAccuracy ?? 0) >= stage.targetAccuracy;
+
+      if (cleared) {
+        const rewardGranted = clearStage(stage.id);
+        const awardedPoints = rewardGranted ? stage.rewardPoints : 0;
+        if (awardedPoints > 0) {
+          addPoints(awardedPoints);
+        }
+        set({
+          trainingStatus: "completed",
+          lastTrainingResult: result,
+          pendingStageClearId: stage.id,
+          pendingStageClearRewardPoints: awardedPoints,
+          trainingErrorMessage: null,
+        });
       } else {
-        set({ trainingStatus: "failed" });
+        set({
+          trainingStatus: "failed",
+          lastTrainingResult: result,
+          pendingStageClearId: null,
+          pendingStageClearRewardPoints: 0,
+          trainingErrorMessage: null,
+        });
       }
     } catch (error) {
       console.error("Training failed:", error);
       if (get().isTrainingRunCurrent(runId)) {
-        set({ trainingStatus: "failed" });
+        set({
+          trainingStatus: "failed",
+          lastTrainingResult: null,
+          pendingStageClearId: null,
+          pendingStageClearRewardPoints: 0,
+          trainingErrorMessage:
+            error instanceof Error ? error.message : "Training failed.",
+        });
       }
     } finally {
       dataset?.xs.dispose();
@@ -275,5 +424,8 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
   },
 
   // --- リセット ---
-  resetPlay: () => set({ ...initialState }),
+  resetPlay: () => {
+    set({ ...initialState });
+    useVisualizerStore.getState().resetVisualization();
+  },
 }));

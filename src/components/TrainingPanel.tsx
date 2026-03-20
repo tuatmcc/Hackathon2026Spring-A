@@ -1,30 +1,39 @@
 // ============================================================
-// TrainingPanel — 学習条件の設定 + 学習開始 + メトリクス表示
-//
-// 【担当者へ】
-// optimizer の選択肢は unlockedSkills でフィルタ。
-// 学習曲線グラフは TODO (Recharts / Chart.js 等)。
+// TrainingPanel — Steampunk-themed training controls + metrics
 // ============================================================
 
-import type { CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { STAGE_DATA } from "../config/stages";
 import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
+import {
+  estimateModelParameterCount,
+  formatParameterCount,
+  getModelParameterCap,
+} from "../ml/modelParameterBudget";
+import {
+  formatStageTargetValue,
+  getStageTargetLabel,
+} from "../stageUtils";
 import type { TrainingMetrics, TrainingStatus } from "../types";
+import { SteamParticles } from "./SteamParticles";
+import { sortLayerNodesTopologically } from "./networkEditorUtils";
+import { sanitizeLayerNodeData } from "../layerSizeOptions";
 
 const CHART_WIDTH = 100;
 const CHART_HEIGHT = 56;
-const TRAIN_LINE_COLOR = "#6b6375";
-const VALIDATION_LINE_COLOR = "var(--accent)";
-const TARGET_LINE_COLOR = "#4caf50";
+const TRAIN_LINE_COLOR = "#b87333";
+const VALIDATION_LINE_COLOR = "#b58921";
+const TARGET_LINE_COLOR = "#3fb950";
 
 export function TrainingPanel() {
   const currentStageIndex = useGameStore((s) => s.currentStageIndex);
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
   const stage = STAGE_DATA[currentStageIndex];
-  const targetAccuracy = stage?.targetAccuracy;
   const {
+    nodes,
+    edges,
     selectedOptimizer,
     setSelectedOptimizer,
     learningRate,
@@ -42,13 +51,72 @@ export function TrainingPanel() {
     (s) => s.treeId === "optimizer" && unlockedSkills.includes(s.id),
   );
   const latestMetrics = metrics[metrics.length - 1];
+  const isRegressionTask = stage?.taskType === "regression";
+  const targetValue = isRegressionTask ? stage?.targetLoss : stage?.targetAccuracy;
+  const summaryMetricLabel = isRegressionTask ? "Val Loss" : "Val Acc";
+  const summaryMetricValue = isRegressionTask
+    ? formatMetric(latestMetrics?.valLoss ?? latestMetrics?.loss)
+    : formatPercent(latestMetrics?.valAccuracy ?? latestMetrics?.accuracy);
+  const chartTitle = isRegressionTask ? "Loss Curve" : "Accuracy Curve";
+  const trainMetricSelector = (item: TrainingMetrics) =>
+    isRegressionTask ? item.loss : item.accuracy;
+  const validationMetricSelector = (item: TrainingMetrics) =>
+    isRegressionTask ? item.valLoss : item.valAccuracy;
+  const chartMaxValue = getChartMax(
+    metrics,
+    trainMetricSelector,
+    validationMetricSelector,
+    targetValue,
+    isRegressionTask,
+  );
+  const chartTicks = getChartTicks(chartMaxValue, isRegressionTask);
+  const trainPoints = getMetricPlotPoints(
+    metrics,
+    trainMetricSelector,
+    chartMaxValue,
+  );
+  const validationPoints = getMetricPlotPoints(
+    metrics,
+    validationMetricSelector,
+    chartMaxValue,
+  );
+  const parameterBudget = useMemo(() => {
+    if (!stage) {
+      return null;
+    }
+
+    const cap = getModelParameterCap(unlockedSkills);
+
+    try {
+      const sortedNodes =
+        edges.length > 0 && nodes.length > 1
+          ? sortLayerNodesTopologically(nodes, edges)
+          : nodes;
+      const layers = sortedNodes.map((node) =>
+        sanitizeLayerNodeData(node.data, unlockedSkills),
+      );
+      const estimate = estimateModelParameterCount(layers, stage);
+
+      return {
+        parameterCount: estimate.parameterCount,
+        cap,
+        isExceeded: estimate.parameterCount > cap,
+      };
+    } catch {
+      return {
+        parameterCount: null,
+        cap,
+        isExceeded: false,
+      };
+    }
+  }, [edges, nodes, stage, unlockedSkills]);
 
   return (
     <section style={panelStyle}>
       <div style={headerStyle}>
-        <div>
-          <div style={eyebrowStyle}>Training</div>
-          <strong>Optimizer & Progress</strong>
+        <div style={headerLeftStyle}>
+          <div style={eyebrowStyle}>Engine</div>
+          <strong style={{ color: "var(--text-h)", fontSize: 12 }}>Training</strong>
         </div>
         <div style={statusPill(trainingStatus)}>{statusLabel(trainingStatus)}</div>
       </div>
@@ -71,12 +139,12 @@ export function TrainingPanel() {
         </label>
 
         <label style={controlStyle}>
-          <span style={controlLabelStyle}>Learning Rate</span>
+          <span style={controlLabelStyle}>LR</span>
           <input
             type="number"
             value={learningRate}
             min={0.0001}
-            step={0.01}
+            step={0.001}
             onChange={(e) => setLearningRate(Number(e.target.value))}
             disabled={trainingStatus === "training"}
             style={inputStyle}
@@ -84,7 +152,7 @@ export function TrainingPanel() {
         </label>
 
         <label style={controlStyle}>
-          <span style={controlLabelStyle}>Batch Size</span>
+          <span style={controlLabelStyle}>Batch</span>
           <input
             type="number"
             value={batchSize}
@@ -113,10 +181,29 @@ export function TrainingPanel() {
           void startTraining();
         }}
         disabled={trainingStatus === "training"}
-        style={startButtonStyle(trainingStatus === "training")}
+        style={startButtonStyle(trainingStatus)}
       >
-        {trainingStatus === "training" ? "Training..." : "Start Training"}
+        {trainingStatus === "training" && (
+          <SteamParticles active kind="sparks" count={15} duration={0} />
+        )}
+        <span style={startButtonInnerStyle}>
+          {trainingStatus === "training" ? "Running..." : "Ignite"}
+        </span>
+        {trainingStatus === "training" && (
+          <div style={progressStripeStyle} />
+        )}
       </button>
+
+      {parameterBudget && (
+        <div style={parameterBudgetStyle(parameterBudget.isExceeded)}>
+          <span style={parameterBudgetLabelStyle}>Params</span>
+          <strong>
+            {parameterBudget.parameterCount == null
+              ? `? / ${formatParameterCount(parameterBudget.cap)}`
+              : `${formatParameterCount(parameterBudget.parameterCount)} / ${formatParameterCount(parameterBudget.cap)}`}
+          </strong>
+        </div>
+      )}
 
       <div style={metricsRowStyle}>
         <MetricCard
@@ -130,17 +217,17 @@ export function TrainingPanel() {
           value={formatMetric(latestMetrics?.loss)}
         />
         <MetricCard
-          label="Val Acc"
-          value={formatPercent(latestMetrics?.valAccuracy)}
+          label={summaryMetricLabel}
+          value={summaryMetricValue}
         />
       </div>
 
       <div style={chartShellStyle}>
         <div style={chartHeaderStyle}>
-          <strong>Accuracy Curve</strong>
-          {targetAccuracy != null && (
+          <strong style={{ color: "var(--brass)", fontSize: 10 }}>{chartTitle}</strong>
+          {stage && targetValue != null && (
             <span style={targetStyle}>
-              Target {(targetAccuracy * 100).toFixed(0)}%
+              {getStageTargetLabel(stage)} {formatStageTargetValue(stage)}
             </span>
           )}
         </div>
@@ -152,24 +239,24 @@ export function TrainingPanel() {
               preserveAspectRatio="none"
               style={chartSvgStyle}
             >
-              {[0, 0.5, 1].map((tick) => (
+              {chartTicks.map((tick) => (
                 <line
                   key={tick}
                   x1={0}
-                  y1={valueToY(tick)}
+                  y1={valueToY(tick, chartMaxValue)}
                   x2={CHART_WIDTH}
-                  y2={valueToY(tick)}
-                  stroke="var(--border)"
+                  y2={valueToY(tick, chartMaxValue)}
+                  stroke="rgba(181, 137, 33, 0.12)"
                   strokeWidth={0.5}
                 />
               ))}
 
-              {targetAccuracy != null && (
+              {targetValue != null && (
                 <line
                   x1={0}
-                  y1={valueToY(targetAccuracy)}
+                  y1={valueToY(targetValue, chartMaxValue)}
                   x2={CHART_WIDTH}
-                  y2={valueToY(targetAccuracy)}
+                  y2={valueToY(targetValue, chartMaxValue)}
                   stroke={TARGET_LINE_COLOR}
                   strokeDasharray="2.5 2"
                   strokeWidth={0.8}
@@ -177,14 +264,14 @@ export function TrainingPanel() {
               )}
 
               <path
-                d={buildMetricPath(metrics, (item) => item.accuracy)}
+                d={buildMetricPath(trainPoints)}
                 fill="none"
                 stroke={TRAIN_LINE_COLOR}
                 strokeWidth={1.4}
                 strokeLinecap="round"
               />
               <path
-                d={buildMetricPath(metrics, (item) => item.valAccuracy)}
+                d={buildMetricPath(validationPoints)}
                 fill="none"
                 stroke={VALIDATION_LINE_COLOR}
                 strokeWidth={1.4}
@@ -193,12 +280,12 @@ export function TrainingPanel() {
             </svg>
             <div style={legendStyle}>
               <LegendItem color={TRAIN_LINE_COLOR} label="Train" />
-              <LegendItem color={VALIDATION_LINE_COLOR} label="Validation" />
+              <LegendItem color={VALIDATION_LINE_COLOR} label="Val" />
             </div>
           </>
         ) : (
           <div style={chartPlaceholderStyle}>
-            学習を開始すると精度カーブがここに表示されます。
+            {isRegressionTask ? "Train to see loss curve" : "Train to see accuracy curve"}
           </div>
         )}
       </div>
@@ -210,7 +297,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div style={metricCardStyle}>
       <span style={metricLabelStyle}>{label}</span>
-      <strong>{value}</strong>
+      <strong style={{ color: "var(--brass)", fontSize: 12 }}>{value}</strong>
     </div>
   );
 }
@@ -224,12 +311,17 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-function buildMetricPath(
+interface MetricPlotPoint {
+  x: number;
+  y: number;
+}
+
+function getMetricPlotPoints(
   metrics: TrainingMetrics[],
   selector: (item: TrainingMetrics) => number | undefined,
+  maxValue: number,
 ) {
-  let path = "";
-  let started = false;
+  const points: MetricPlotPoint[] = [];
 
   metrics.forEach((item, index) => {
     const value = selector(item);
@@ -241,17 +333,33 @@ function buildMetricPath(
       metrics.length === 1
         ? CHART_WIDTH / 2
         : (index / (metrics.length - 1)) * CHART_WIDTH;
-    const y = valueToY(value);
-    path += `${started ? " L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    started = true;
+    const y = valueToY(value, maxValue);
+    points.push({ x, y });
   });
 
-  return path;
+  return points;
 }
 
-function valueToY(value: number) {
-  const clamped = Math.max(0, Math.min(1, value));
-  return CHART_HEIGHT - clamped * CHART_HEIGHT;
+function buildMetricPath(points: MetricPlotPoint[]) {
+  if (points.length === 1) {
+    const point = points[0];
+    const left = Math.max(0, point.x - 3);
+    const right = Math.min(CHART_WIDTH, point.x + 3);
+    return `M ${left.toFixed(2)} ${point.y.toFixed(2)} L ${right.toFixed(2)} ${point.y.toFixed(2)}`;
+  }
+
+  return points
+    .map((point, index) => {
+      const command = index === 0 ? "M" : "L";
+      return `${command} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function valueToY(value: number, maxValue: number) {
+  const scale = maxValue > 0 ? maxValue : 1;
+  const clamped = Math.max(0, Math.min(scale, value));
+  return CHART_HEIGHT - (clamped / scale) * CHART_HEIGHT;
 }
 
 function formatMetric(value: number | undefined) {
@@ -260,6 +368,38 @@ function formatMetric(value: number | undefined) {
 
 function formatPercent(value: number | undefined) {
   return value != null ? `${(value * 100).toFixed(1)}%` : "--";
+}
+
+function getChartMax(
+  metrics: TrainingMetrics[],
+  trainSelector: (item: TrainingMetrics) => number | undefined,
+  validationSelector: (item: TrainingMetrics) => number | undefined,
+  targetValue: number | undefined,
+  isRegressionTask: boolean | undefined,
+) {
+  if (!isRegressionTask) {
+    return 1;
+  }
+
+  const values = metrics.flatMap((metric) => [
+    trainSelector(metric),
+    validationSelector(metric),
+  ]);
+  const finiteValues = values.filter(
+    (value): value is number => value != null && Number.isFinite(value),
+  );
+  const baseline = targetValue != null ? [targetValue] : [];
+  const maxValue = Math.max(...finiteValues, ...baseline, 0.1);
+
+  return maxValue * 1.1;
+}
+
+function getChartTicks(maxValue: number, isRegressionTask: boolean | undefined) {
+  if (!isRegressionTask) {
+    return [0, 0.5, 1];
+  }
+
+  return [0, maxValue / 2, maxValue];
 }
 
 function statusLabel(trainingStatus: TrainingStatus) {
@@ -276,116 +416,191 @@ function statusLabel(trainingStatus: TrainingStatus) {
 }
 
 const panelStyle: CSSProperties = {
-  padding: 16,
-  background: "var(--bg)",
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+  padding: "8px 10px",
+  background: "var(--bg-surface)",
+  overflow: "hidden",
 };
 
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 12,
+  gap: 8,
+  marginBottom: 6,
+  flexShrink: 0,
+};
+
+const headerLeftStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
 };
 
 const eyebrowStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 8,
   textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  color: "var(--accent)",
-  marginBottom: 4,
+  letterSpacing: "0.14em",
+  fontWeight: 800,
+  color: "var(--brass)",
 };
 
 const controlsGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 10,
+  gap: 6,
+  flexShrink: 0,
 };
 
 const controlStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 6,
+  gap: 2,
   textAlign: "left",
-  fontSize: 12,
+  fontSize: 11,
 };
 
 const controlLabelStyle: CSSProperties = {
   color: "var(--text)",
   textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  fontSize: 11,
+  letterSpacing: "0.1em",
+  fontSize: 8,
+  fontWeight: 800,
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--border)",
-  background: "var(--bg)",
-  color: "var(--text-h)",
+  padding: "5px 8px",
+  border: "1px solid var(--accent-border)",
+  background: "#000",
+  color: "var(--brass)",
+  fontWeight: 700,
+  fontSize: 11,
 };
 
-function startButtonStyle(disabled: boolean): CSSProperties {
+function startButtonStyle(status: TrainingStatus): CSSProperties {
+  const isRunning = status === "training";
   return {
     width: "100%",
-    marginTop: 12,
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "none",
-    background: disabled ? "var(--border)" : "var(--accent)",
-    color: "#fff",
+    marginTop: 8,
+    padding: 0,
+    border: isRunning ? "2px solid #d44" : "2px solid var(--rust)",
+    background: isRunning ? "#600" : "var(--brass)",
+    color: isRunning ? "#fff" : "#000",
+    fontWeight: 800,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    cursor: isRunning ? "progress" : "pointer",
+    boxShadow: isRunning ? "0 0 16px rgba(221, 68, 68, 0.2)" : "3px 3px 0 rgba(0,0,0,0.4)",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    overflow: "hidden",
+    position: "relative",
+    animation: isRunning ? "engine-rumble 0.15s linear infinite" : "none",
+    flexShrink: 0,
+  };
+}
+
+const startButtonInnerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  padding: "10px 16px",
+  position: "relative",
+  zIndex: 2,
+};
+
+const progressStripeStyle: CSSProperties = {
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 3,
+  background: "repeating-linear-gradient(90deg, rgba(181, 137, 33, 0.4), rgba(181, 137, 33, 0.4) 10px, transparent 10px, transparent 20px)",
+  backgroundSize: "40px 3px",
+  animation: "progress-stripe 0.6s linear infinite",
+};
+
+const parameterBudgetLabelStyle: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "var(--text-muted)",
+};
+
+function parameterBudgetStyle(isExceeded: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 10,
+    padding: "8px 10px",
+    border: `1px solid ${isExceeded ? "rgba(221, 68, 68, 0.28)" : "rgba(181, 137, 33, 0.18)"}`,
+    background: isExceeded ? "rgba(221, 68, 68, 0.06)" : "rgba(181, 137, 33, 0.06)",
+    color: isExceeded ? "#d44" : "var(--brass)",
+    fontSize: 11,
     fontWeight: 700,
-    boxShadow: disabled ? "none" : "var(--shadow)",
-    cursor: disabled ? "progress" : "pointer",
   };
 }
 
 const metricsRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 8,
-  marginTop: 12,
+  gap: 4,
+  marginTop: 6,
+  flexShrink: 0,
 };
 
 const metricCardStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 4,
-  padding: "10px 12px",
-  borderRadius: 12,
+  gap: 2,
+  padding: "6px 8px",
   border: "1px solid var(--border)",
-  background: "var(--accent-bg)",
+  background: "rgba(181, 137, 33, 0.04)",
   textAlign: "left",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
 };
 
 const metricLabelStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 8,
   textTransform: "uppercase",
-  letterSpacing: "0.08em",
+  letterSpacing: "0.12em",
+  fontWeight: 800,
   color: "var(--text)",
 };
 
 const chartShellStyle: CSSProperties = {
-  marginTop: 14,
-  padding: 12,
-  borderRadius: 16,
+  flex: 1,
+  minHeight: 0,
+  marginTop: 6,
+  padding: 8,
   border: "1px solid var(--border)",
-  background: "linear-gradient(180deg, var(--accent-bg), var(--bg))",
+  background: "#000",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
 };
 
 const chartHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 10,
-  fontSize: 13,
+  gap: 6,
+  marginBottom: 4,
+  fontSize: 10,
+  flexShrink: 0,
 };
 
 const targetStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 9,
   color: TARGET_LINE_COLOR,
   fontWeight: 700,
 };
@@ -393,75 +608,77 @@ const targetStyle: CSSProperties = {
 const chartSvgStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  height: 156,
+  flex: 1,
+  minHeight: 60,
 };
 
 const chartPlaceholderStyle: CSSProperties = {
-  minHeight: 156,
-  borderRadius: 12,
+  flex: 1,
+  minHeight: 60,
   border: "1px dashed var(--accent-border)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   color: "var(--text)",
-  fontSize: 12,
-  background: "var(--accent-bg)",
+  fontSize: 10,
+  background: "rgba(181, 137, 33, 0.03)",
   textAlign: "center",
-  padding: 16,
+  padding: 8,
   boxSizing: "border-box",
 };
 
 const legendStyle: CSSProperties = {
   display: "flex",
-  gap: 14,
-  marginTop: 10,
-  fontSize: 12,
+  gap: 10,
+  marginTop: 4,
+  fontSize: 9,
   color: "var(--text)",
+  flexShrink: 0,
 };
 
 const legendItemStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
+  gap: 4,
 };
 
 const legendDotStyle: CSSProperties = {
-  width: 10,
-  height: 10,
-  borderRadius: 999,
+  width: 7,
+  height: 7,
 };
 
 function statusPill(trainingStatus: TrainingStatus): CSSProperties {
   const palette =
     trainingStatus === "completed"
       ? {
-          color: "#1a6c47",
-          background: "rgba(39, 176, 110, 0.12)",
-          border: "rgba(39, 176, 110, 0.24)",
+          color: "#3fb950",
+          background: "rgba(63, 185, 80, 0.1)",
+          border: "rgba(63, 185, 80, 0.3)",
         }
       : trainingStatus === "failed"
         ? {
-            color: "#9d531a",
-            background: "rgba(238, 125, 31, 0.12)",
-            border: "rgba(238, 125, 31, 0.22)",
+            color: "#d44",
+            background: "rgba(221, 68, 68, 0.08)",
+            border: "rgba(221, 68, 68, 0.25)",
           }
         : trainingStatus === "training"
           ? {
-              color: "var(--accent)",
-              background: "var(--accent-bg)",
+              color: "var(--brass)",
+              background: "rgba(181, 137, 33, 0.1)",
               border: "var(--accent-border)",
             }
           : {
               color: "var(--text)",
-              background: "var(--bg)",
+              background: "transparent",
               border: "var(--border)",
             };
 
   return {
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 700,
+    padding: "5px 10px",
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
     color: palette.color,
     background: palette.background,
     border: `1px solid ${palette.border}`,

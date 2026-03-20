@@ -80,6 +80,32 @@ describe("buildModel", () => {
         model.dispose();
       }
     });
+
+    it("同じseedなら同じ初期重みになる", () => {
+      const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
+      ];
+
+      const first = buildModel(layers, testStage, "sgd", 0.1, 4242);
+      const second = buildModel(layers, testStage, "sgd", 0.1, 4242);
+
+      expect(Array.from(first.getWeights()[0]?.dataSync() ?? [])).toEqual(
+        Array.from(second.getWeights()[0]?.dataSync() ?? []),
+      );
+
+      first.dispose();
+      second.dispose();
+    });
+
+    it("総パラメータ数の上限を超える構成を拒否する", () => {
+      const layers: LayerNodeData[] = [
+        { layerType: "dense", units: 4, activation: "relu", regularization: null, regularizationRate: 0 },
+      ];
+
+      expect(() =>
+        buildModel(layers, testStage, "sgd", 0.1, undefined, { maxParameters: 16 }),
+      ).toThrow("総パラメータ数");
+    });
   });
 
   describe("conv2d層", () => {
@@ -92,7 +118,7 @@ describe("buildModel", () => {
       lossFunction: "categoricalCrossentropy",
     };
 
-    it("conv2d層を追加できる", () => {
+    it("flattenなしの画像モデルは構築を拒否する", () => {
       const layers: LayerNodeData[] = [
         {
           layerType: "conv2d",
@@ -104,10 +130,9 @@ describe("buildModel", () => {
           kernelSize: 3,
         },
       ];
-      const model = buildModel(layers, imageStage, "adam", 0.001);
-
-      expect(model.layers.length).toBe(2);
-      model.dispose();
+      expect(() => buildModel(layers, imageStage, "adam", 0.001)).toThrow(
+        "Flatten",
+      );
     });
   });
 
@@ -139,6 +164,22 @@ describe("buildModel", () => {
 
       expect(model.layers.length).toBe(4);
       model.dispose();
+    });
+
+    it("画像ステージでflattenなしのdense構成は構築を拒否する", () => {
+      const layers: LayerNodeData[] = [
+        {
+          layerType: "dense",
+          units: 64,
+          activation: "relu",
+          regularization: null,
+          regularizationRate: 0,
+        },
+      ];
+
+      expect(() => buildModel(layers, imageStage, "adam", 0.001)).toThrow(
+        "Flatten",
+      );
     });
   });
 

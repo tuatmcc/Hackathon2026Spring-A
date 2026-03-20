@@ -11,6 +11,12 @@
 
 import * as tf from "@tensorflow/tfjs";
 import type { LayerNodeData, StageDef } from "../types";
+import { deriveSeed } from "./random";
+import { formatParameterCount } from "./modelParameterBudget";
+
+export interface BuildModelConstraints {
+  maxParameters?: number;
+}
 
 function createRegularizer(regularization: string | null, rate: number) {
   if (regularization === "l1") {
@@ -22,11 +28,44 @@ function createRegularizer(regularization: string | null, rate: number) {
   return undefined;
 }
 
+function formatShape(shape: Array<number | null>) {
+  return `[${shape.map((dim) => (dim == null ? "batch" : String(dim))).join(", ")}]`;
+}
+
+function createKernelInitializer(
+  activation: string | null | undefined,
+  seed?: number,
+) {
+  if (seed == null) {
+    return undefined;
+  }
+
+  if (activation === "relu" || activation === "gelu") {
+    return tf.initializers.heUniform({ seed });
+  }
+
+  return tf.initializers.glorotUniform({ seed });
+}
+
+function validateOutputShape(model: tf.LayersModel, stage: StageDef) {
+  const outputShape = model.outputs[0]?.shape ?? [];
+  if (outputShape.length === 2) {
+    return;
+  }
+
+  model.dispose();
+  throw new Error(
+    `${stage.name} の出力 shape が不正です。現在は ${formatShape(outputShape)} です。分類/回帰タスクでは [batch, ${stage.outputUnits}] が必要です。画像系の構成では出力前に Flatten を追加してください。`,
+  );
+}
+
 export function buildModel(
   layers: LayerNodeData[],
   stage: StageDef,
   optimizer: string,
   learningRate: number,
+  seed?: number,
+  constraints?: BuildModelConstraints,
 ): tf.LayersModel {
   const model = tf.sequential();
 
@@ -34,6 +73,8 @@ export function buildModel(
     const layer = layers[i];
     const isFirst = i === 0;
     const kernelRegularizer = createRegularizer(layer.regularization, layer.regularizationRate);
+    const layerSeed = seed == null ? undefined : deriveSeed(seed, i + 1);
+    const kernelInitializer = createKernelInitializer(layer.activation, layerSeed);
 
     switch (layer.layerType) {
       case "dense":
@@ -42,6 +83,7 @@ export function buildModel(
             units: layer.units,
             activation: (layer.activation ?? "linear") as never,
             kernelRegularizer,
+            ...(kernelInitializer ? { kernelInitializer } : {}),
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
@@ -54,6 +96,7 @@ export function buildModel(
             kernelSize: layer.kernelSize ?? 3,
             activation: (layer.activation ?? "relu") as never,
             kernelRegularizer,
+            ...(kernelInitializer ? { kernelInitializer } : {}),
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
@@ -73,23 +116,45 @@ export function buildModel(
             units: layer.units,
             activation: (layer.activation ?? "linear") as never,
             kernelRegularizer,
+            ...(kernelInitializer ? { kernelInitializer } : {}),
             ...(isFirst ? { inputShape: stage.inputShape } : {}),
           }),
         );
     }
 
     if (layer.regularization === "dropout" && layer.regularizationRate > 0) {
-      model.add(tf.layers.dropout({ rate: layer.regularizationRate }));
+      model.add(
+        tf.layers.dropout({
+          rate: layer.regularizationRate,
+          ...(layerSeed != null ? { seed: deriveSeed(layerSeed, 1000) } : {}),
+        }),
+      );
     }
   }
 
+  const outputSeed = seed == null ? undefined : deriveSeed(seed, layers.length + 1);
+  const outputInitializer = createKernelInitializer(stage.outputActivation, outputSeed);
   model.add(
     tf.layers.dense({
       units: stage.outputUnits,
       activation: stage.outputActivation as never,
+      ...(outputInitializer ? { kernelInitializer: outputInitializer } : {}),
       ...(layers.length === 0 ? { inputShape: stage.inputShape } : {}),
     }),
   );
+
+  validateOutputShape(model, stage);
+
+  const totalParameterCount = model.countParams();
+  if (
+    constraints?.maxParameters != null &&
+    totalParameterCount > constraints.maxParameters
+  ) {
+    model.dispose();
+    throw new Error(
+      `モデルの総パラメータ数が上限を超えています。現在 ${formatParameterCount(totalParameterCount)} / 上限 ${formatParameterCount(constraints.maxParameters)} です。層の幅や数を減らすか、総パラメータ上限スキルを解放してください。`,
+    );
+  }
 
   const opt =
     optimizer === "adam"

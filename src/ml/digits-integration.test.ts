@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * @vitest-environment node
  */
@@ -5,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as tf from "@tensorflow/tfjs";
 import { buildModel } from "./buildModel";
 import { loadDigitsData } from "./datasets";
+import { deriveSeed } from "./random";
 import { trainModel } from "./trainer";
 import type { LayerNodeData, StageDef } from "../types";
 import { readFileSync } from "fs";
@@ -13,6 +15,7 @@ import { dirname, join } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const DIGITS_TEST_SEED = 701;
 
 vi.stubGlobal("fetch", async () => {
   const filePath = join(__dirname, "../../public/data/digits.json");
@@ -53,13 +56,14 @@ describe("Digits統合テスト", () => {
       { layerType: "dense", units: 32, activation: "relu", regularization: null, regularizationRate: 0 },
     ];
 
-    const model = buildModel(layers, stage, "adam", 0.001);
+    const model = buildModel(layers, stage, "adam", 0.001, deriveSeed(DIGITS_TEST_SEED, 1));
     const dataset = await loadDigitsData();
 
     const result = await trainModel(model, dataset, {
       epochs: 20,
       batchSize: 32,
       validationSplit: 0,
+      seed: deriveSeed(DIGITS_TEST_SEED, 2),
     });
 
     expect(result.finalAccuracy).toBeGreaterThan(0.7);
@@ -84,13 +88,14 @@ describe("Digits統合テスト", () => {
       { layerType: "dense", units: 16, activation: "relu", regularization: null, regularizationRate: 0 },
     ];
 
-    const model = buildModel(layers, stage, "adam", 0.01);
+    const model = buildModel(layers, stage, "adam", 0.01, deriveSeed(DIGITS_TEST_SEED, 3));
     const dataset = await loadDigitsData();
 
     const result = await trainModel(model, dataset, {
       epochs: 10,
       batchSize: 32,
       validationSplit: 0,
+      seed: deriveSeed(DIGITS_TEST_SEED, 4),
     });
 
     expect(result.finalAccuracy).toBeGreaterThan(0.3);
@@ -107,13 +112,14 @@ describe("Digits統合テスト", () => {
       { layerType: "dense", units: 64, activation: "relu", regularization: "dropout", regularizationRate: 0.3 },
     ];
 
-    const model = buildModel(layers, stage, "adam", 0.001);
+    const model = buildModel(layers, stage, "adam", 0.001, deriveSeed(DIGITS_TEST_SEED, 5));
     const dataset = await loadDigitsData();
 
     const result = await trainModel(model, dataset, {
       epochs: 20,
       batchSize: 32,
       validationSplit: 0,
+      seed: deriveSeed(DIGITS_TEST_SEED, 6),
     });
 
     expect(result.finalAccuracy).toBeGreaterThan(0.5);

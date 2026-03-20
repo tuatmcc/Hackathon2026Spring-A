@@ -8,52 +8,41 @@
 // ============================================================
 
 import { SKILL_DATA } from "../config/skills";
+import { isLayerNodeSkill } from "../layerSizeOptions";
 import { useGameStore } from "../stores/gameStore";
 import { usePlayStore } from "../stores/playStore";
-import type { LayerNodeData } from "../types";
-import type { Node } from "@xyflow/react";
-
-let nodeIdCounter = 0;
-
-function createLayerNode(layerType: string): Node<LayerNodeData> {
-  nodeIdCounter++;
-  return {
-    id: `layer-${nodeIdCounter}`,
-    type: "default",
-    position: { x: 100, y: 80 * nodeIdCounter },
-    data: {
-      layerType,
-      units: 32,
-      activation: null,
-      regularization: null,
-      regularizationRate: 0.2,
-    },
-  };
-}
+import { createLayerNode } from "./layerNodeFactory";
 
 export function NodePalette() {
   const unlockedSkills = useGameStore((s) => s.unlockedSkills);
   const addNode = usePlayStore((s) => s.addNode);
 
   const availableLayers = SKILL_DATA.filter(
-    (s) => s.treeId === "layer" && unlockedSkills.includes(s.id),
+    (s) =>
+      s.treeId === "layer" &&
+      unlockedSkills.includes(s.id) &&
+      isLayerNodeSkill(s.id),
   );
 
   return (
-    <div style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
-      <strong>Layers</strong>
-      <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+    <div className="node-palette">
+      <strong className="node-palette__title">Layers</strong>
+      <div className="node-palette__list">
         {availableLayers.map((skill) => (
           <button
+            className="node-palette__button"
             key={skill.id}
             onClick={() => addNode(createLayerNode(skill.id))}
-            style={{ fontSize: 12, padding: "4px 8px" }}
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData("application/reactflow", skill.id);
+              event.dataTransfer.effectAllowed = "move";
+            }}
           >
             + {skill.name}
           </button>
         ))}
       </div>
-      {/* TODO: D&D 実装。現在はクリックでノード追加 */}
     </div>
   );
 }

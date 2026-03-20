@@ -47,16 +47,23 @@
 | スキルID | 名前 | コスト | 前提 |
 |---|---|---|---|
 | `dense` | 全結合層 (Dense) | 0 (初期解放) | なし |
-| `conv2d` | 畳み込み層 (Conv2D) | 300 | dense |
-| `flatten` | Flatten | 100 | conv2d |
+| `model_params_cap_32` | 総パラメータ上限 32 | 0 (初期解放) | dense |
+| `model_params_cap_64` | 総パラメータ上限 64 | 15 | model_params_cap_32 |
+| `model_params_cap_128` | 総パラメータ上限 128 | 25 | model_params_cap_64 |
+| `model_params_cap_256` | 総パラメータ上限 256 | 40 | model_params_cap_128 |
+| `model_params_cap_512` | 総パラメータ上限 512 | 70 | model_params_cap_256 |
+| `model_params_cap_1024` | 総パラメータ上限 1024 | 110 | model_params_cap_512 |
+| `model_params_cap_4096` | 総パラメータ上限 4096 | 180 | model_params_cap_1024 |
+| `flatten` | Flatten | 80 | dense |
+| `conv2d` | 畳み込み層 (Conv2D) | 180 | flatten |
 
 ### 活性化関数ツリー (`treeId: "activation"`)
 
 | スキルID | 名前 | コスト | 前提 |
 |---|---|---|---|
-| `relu` | ReLU | 0 (初期解放) | なし |
-| `sigmoid` | Sigmoid | 50 | relu |
-| `gelu` | GELU | 200 | relu |
+| `sigmoid` | Sigmoid | 0 (初期解放) | なし |
+| `relu` | ReLU | 50 | sigmoid |
+| `gelu` | GELU | 120 | relu |
 
 ### 学習手法ツリー (`treeId: "optimizer"`)
 
@@ -69,9 +76,9 @@
 
 | スキルID | 名前 | コスト | 前提 |
 |---|---|---|---|
-| `dropout` | Dropout | 150 | なし |
-| `l2` | L2正則化 | 100 | なし |
-| `l1` | L1正則化 | 100 | なし |
+| `l2` | L2正則化 | 90 | なし |
+| `dropout` | Dropout | 120 | l2 |
+| `l1` | L1正則化 | 120 | l2 |
 
 ## スキルの仕組み
 

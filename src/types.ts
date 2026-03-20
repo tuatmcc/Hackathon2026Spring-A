@@ -24,10 +24,20 @@ export interface SkillDef {
 
 // ---------- ステージ (マスターデータ) ----------
 
+export interface StageTrainingPreset {
+  learningRate: number;
+  batchSize: number;
+  epochs: number;
+  recommendedOptimizer?: string;
+}
+
 export interface StageDef {
   id: string;
   name: string;
   description: string;
+  briefing?: string;
+  hint?: string;
+  clearMessage?: string;
   /** datasets.ts のレジストリキー */
   datasetId: string;
   /** 入力テンソルの形状。[1] = 1D特徴量, [2] = 2D特徴量, [28,28,1] = 画像 */
@@ -42,6 +52,8 @@ export interface StageDef {
   /** クリア条件: 回帰は MSE <= targetLoss */
   targetLoss?: number;
   rewardPoints: number;
+  recommendedLayerTypes?: string[];
+  trainingPreset?: StageTrainingPreset;
 }
 
 // ---------- プレイ中のノードデータ ----------
