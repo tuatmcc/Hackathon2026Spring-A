@@ -18,7 +18,10 @@ import {
 } from "../stageUtils";
 import type { TrainingMetrics, TrainingStatus } from "../types";
 import { SteamParticles } from "./SteamParticles";
-import { sortLayerNodesTopologically } from "./networkEditorUtils";
+import {
+  sortLayerNodesTopologically,
+  validateSequentialLayerGraph,
+} from "./networkEditorUtils";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
 
 const CHART_WIDTH = 100;
@@ -110,6 +113,16 @@ export function TrainingPanel() {
       };
     }
   }, [edges, nodes, stage, unlockedSkills]);
+  const graphValidationMessage = useMemo(() => {
+    try {
+      validateSequentialLayerGraph(nodes, edges);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Fix the network before training.";
+    }
+  }, [edges, nodes]);
+  const isStartDisabled =
+    trainingStatus === "training" || graphValidationMessage !== null;
 
   return (
     <section style={panelStyle}>
@@ -180,8 +193,8 @@ export function TrainingPanel() {
         onClick={() => {
           void startTraining();
         }}
-        disabled={trainingStatus === "training"}
-        style={startButtonStyle(trainingStatus)}
+        disabled={isStartDisabled}
+        style={startButtonStyle(trainingStatus, isStartDisabled)}
       >
         {trainingStatus === "training" && (
           <SteamParticles active kind="sparks" count={15} duration={0} />
@@ -193,6 +206,12 @@ export function TrainingPanel() {
           <div style={progressStripeStyle} />
         )}
       </button>
+
+      {graphValidationMessage && (
+        <div style={validationMessageStyle}>
+          {graphValidationMessage}
+        </div>
+      )}
 
       {parameterBudget && (
         <div style={parameterBudgetStyle(parameterBudget.isExceeded)}>
@@ -482,21 +501,36 @@ const inputStyle: CSSProperties = {
   fontSize: 11,
 };
 
-function startButtonStyle(status: TrainingStatus): CSSProperties {
+function startButtonStyle(
+  status: TrainingStatus,
+  isDisabled: boolean,
+): CSSProperties {
   const isRunning = status === "training";
   return {
     width: "100%",
     marginTop: 8,
     padding: 0,
-    border: isRunning ? "2px solid #d44" : "2px solid var(--rust)",
-    background: isRunning ? "#600" : "var(--brass)",
-    color: isRunning ? "#fff" : "#000",
+    border: isRunning
+      ? "2px solid #d44"
+      : isDisabled
+        ? "2px solid rgba(114, 92, 64, 0.8)"
+        : "2px solid var(--rust)",
+    background: isRunning
+      ? "#600"
+      : isDisabled
+        ? "rgba(95, 80, 55, 0.8)"
+        : "var(--brass)",
+    color: isRunning ? "#fff" : isDisabled ? "rgba(244, 234, 208, 0.72)" : "#000",
     fontWeight: 800,
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: "0.12em",
-    cursor: isRunning ? "progress" : "pointer",
-    boxShadow: isRunning ? "0 0 16px rgba(221, 68, 68, 0.2)" : "3px 3px 0 rgba(0,0,0,0.4)",
+    cursor: isRunning ? "progress" : isDisabled ? "not-allowed" : "pointer",
+    boxShadow: isRunning
+      ? "0 0 16px rgba(221, 68, 68, 0.2)"
+      : isDisabled
+        ? "none"
+        : "3px 3px 0 rgba(0,0,0,0.4)",
     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
     overflow: "hidden",
     position: "relative",
@@ -532,6 +566,16 @@ const parameterBudgetLabelStyle: CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.08em",
   color: "var(--text-muted)",
+};
+
+const validationMessageStyle: CSSProperties = {
+  marginTop: 8,
+  padding: "8px 10px",
+  border: "1px solid rgba(184, 115, 51, 0.45)",
+  background: "rgba(80, 33, 24, 0.68)",
+  color: "#f1c27a",
+  fontSize: 10,
+  lineHeight: 1.45,
 };
 
 function parameterBudgetStyle(isExceeded: boolean): CSSProperties {

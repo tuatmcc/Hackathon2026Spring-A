@@ -229,7 +229,23 @@ describe("playStore fixed nodes", () => {
     });
   });
 
+  it("input と output が未接続の空グラフでは学習を開始しない", async () => {
+    await usePlayStore.getState().startTraining();
+
+    expect(usePlayStore.getState()).toMatchObject({
+      trainingStatus: "failed",
+      trainingErrorMessage:
+        "Connect every layer in a single path from Input to Output before training.",
+    });
+    expect(buildModelMock).not.toHaveBeenCalled();
+    expect(trainModelMock).not.toHaveBeenCalled();
+  });
+
   it("同じステージを再クリアしてもポイントは初回分しか増えない", async () => {
+    usePlayStore.setState({
+      edges: [{ id: "edge-direct", source: "__input__", target: "__output__" }],
+    });
+
     await usePlayStore.getState().startTraining();
 
     expect(useGameStore.getState().points).toBe(linearStage.rewardPoints);
