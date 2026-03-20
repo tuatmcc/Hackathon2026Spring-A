@@ -24,18 +24,13 @@ import {
 } from "./networkEditorUtils";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
 import { FormNumberStepper } from "./FormNumberStepper";
+import { RichSelect } from "./RichSelect";
 
 const CHART_WIDTH = 100;
 const CHART_HEIGHT = 56;
 const TRAIN_LINE_COLOR = "#b87333";
 const VALIDATION_LINE_COLOR = "#b58921";
 const TARGET_LINE_COLOR = "#3fb950";
-
-function blurSelectAfterInteraction(target: HTMLSelectElement) {
-  window.setTimeout(() => {
-    target.blur();
-  }, 0);
-}
 
 export function TrainingPanel() {
   const currentStageIndex = useGameStore((s) => s.currentStageIndex);
@@ -144,29 +139,16 @@ export function TrainingPanel() {
       <div style={controlsGridStyle}>
         <label style={controlStyle}>
           <span style={controlLabelStyle}>Optimizer</span>
-          <div className="rich-control-shell rich-control-shell--select">
-            <select
-              value={selectedOptimizer}
-              onChange={(e) => {
-                setSelectedOptimizer(e.target.value);
-                blurSelectAfterInteraction(e.target);
-              }}
-              onKeyUp={(e) => {
-                if (e.key === "Enter" || e.key === "Escape" || e.key === " ") {
-                  blurSelectAfterInteraction(e.currentTarget);
-                }
-              }}
-              disabled={trainingStatus === "training"}
-              className="rich-control rich-control--select"
-              style={inputStyle}
-            >
-              {availableOptimizers.map((skill) => (
-                <option key={skill.id} value={skill.id}>
-                  {skill.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <RichSelect
+            value={selectedOptimizer}
+            onValueChange={setSelectedOptimizer}
+            disabled={trainingStatus === "training"}
+            options={availableOptimizers.map((skill) => ({
+              value: skill.id,
+              label: skill.name,
+            }))}
+            triggerClassName="training-panel__select-shell"
+          />
         </label>
 
         <label style={controlStyle}>
@@ -503,18 +485,6 @@ const controlLabelStyle: CSSProperties = {
   letterSpacing: "0.1em",
   fontSize: 8,
   fontWeight: 800,
-};
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 10px",
-  border: "none",
-  background: "transparent",
-  color: "var(--paper-light)",
-  fontWeight: 700,
-  fontSize: 11,
-  outline: "none",
 };
 
 function startButtonStyle(
