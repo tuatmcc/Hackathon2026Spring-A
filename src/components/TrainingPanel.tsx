@@ -2,7 +2,7 @@
 // TrainingPanel — Steampunk-themed training controls + metrics
 // ============================================================
 
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { STAGE_DATA } from "../config/stages";
 import { SKILL_DATA } from "../config/skills";
 import { useGameStore } from "../stores/gameStore";
@@ -50,11 +50,14 @@ export function TrainingPanel() {
     trainingStatus,
     metrics,
     startTraining,
+    stopTraining,
   } = usePlayStore();
+  const [isTrainButtonHovered, setIsTrainButtonHovered] = useState(false);
 
   const availableOptimizers = SKILL_DATA.filter(
     (s) => s.treeId === "optimizer" && unlockedSkills.includes(s.id),
   );
+  const isTraining = trainingStatus === "training";
   const latestMetrics = metrics[metrics.length - 1];
   const isRegressionTask = stage?.taskType === "regression";
   const targetValue = isRegressionTask ? stage?.targetLoss : stage?.targetAccuracy;
@@ -123,8 +126,12 @@ export function TrainingPanel() {
       return error instanceof Error ? error.message : "Fix the network before training.";
     }
   }, [edges, nodes]);
-  const isStartDisabled =
-    trainingStatus === "training" || graphValidationMessage !== null;
+  const isButtonDisabled = !isTraining && graphValidationMessage !== null;
+  const trainButtonLabel = isTraining
+    ? isTrainButtonHovered
+      ? "Stop"
+      : "Running..."
+    : "Ignite";
 
   return (
     <section style={panelStyle}>
@@ -188,18 +195,27 @@ export function TrainingPanel() {
 
       <button
         onClick={() => {
+          if (isTraining) {
+            stopTraining();
+            return;
+          }
+
           void startTraining();
         }}
-        disabled={isStartDisabled}
-        style={startButtonStyle(trainingStatus, isStartDisabled)}
+        onMouseEnter={() => setIsTrainButtonHovered(true)}
+        onMouseLeave={() => setIsTrainButtonHovered(false)}
+        onFocus={() => setIsTrainButtonHovered(true)}
+        onBlur={() => setIsTrainButtonHovered(false)}
+        disabled={isButtonDisabled}
+        style={startButtonStyle(trainingStatus, isButtonDisabled, isTrainButtonHovered)}
       >
-        {trainingStatus === "training" && (
+        {isTraining && !isTrainButtonHovered && (
           <SteamParticles active kind="sparks" count={15} duration={0} />
         )}
         <span style={startButtonInnerStyle}>
-          {trainingStatus === "training" ? "Running..." : "Ignite"}
+          {trainButtonLabel}
         </span>
-        {trainingStatus === "training" && (
+        {isTraining && !isTrainButtonHovered && (
           <div style={progressStripeStyle} />
         )}
       </button>
@@ -490,18 +506,24 @@ const controlLabelStyle: CSSProperties = {
 function startButtonStyle(
   status: TrainingStatus,
   isDisabled: boolean,
+  isHovered: boolean,
 ): CSSProperties {
   const isRunning = status === "training";
+  const isStopIntent = isRunning && isHovered;
   return {
     width: "100%",
     marginTop: 8,
     padding: 0,
-    border: isRunning
+    border: isStopIntent
+      ? "2px solid #ff7b72"
+      : isRunning
       ? "2px solid #d44"
       : isDisabled
         ? "2px solid rgba(114, 92, 64, 0.8)"
         : "2px solid var(--rust)",
-    background: isRunning
+    background: isStopIntent
+      ? "linear-gradient(180deg, #a52222 0%, #6b1111 100%)"
+      : isRunning
       ? "#600"
       : isDisabled
         ? "rgba(95, 80, 55, 0.8)"
@@ -511,8 +533,10 @@ function startButtonStyle(
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: "0.12em",
-    cursor: isRunning ? "progress" : isDisabled ? "not-allowed" : "pointer",
-    boxShadow: isRunning
+    cursor: isRunning ? "pointer" : isDisabled ? "not-allowed" : "pointer",
+    boxShadow: isStopIntent
+      ? "0 0 18px rgba(255, 123, 114, 0.28)"
+      : isRunning
       ? "0 0 16px rgba(221, 68, 68, 0.2)"
       : isDisabled
         ? "none"

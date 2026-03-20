@@ -266,6 +266,47 @@ describe("playStore fixed nodes", () => {
     expect(usePlayStore.getState().pendingStageClearRewardPoints).toBe(0);
   });
 
+  it("学習中に停止すると AbortSignal で中断して idle に戻る", async () => {
+    usePlayStore.setState({
+      edges: [{ id: "edge-direct", source: "__input__", target: "__output__" }],
+    });
+
+    let receivedSignal: AbortSignal | undefined;
+    trainModelMock.mockImplementation(
+      async (_model, _dataset, options: { signal?: AbortSignal }) =>
+        new Promise((resolve, reject) => {
+          receivedSignal = options.signal;
+          options.signal?.addEventListener("abort", () => {
+            reject(new Error("Training aborted"));
+          });
+
+          setTimeout(() => {
+            resolve({
+              finalLoss: 0.1,
+              finalAccuracy: linearStage.targetAccuracy,
+            });
+          }, 50);
+        }),
+    );
+
+    const trainingPromise = usePlayStore.getState().startTraining();
+    await Promise.resolve();
+
+    expect(usePlayStore.getState().trainingStatus).toBe("training");
+
+    usePlayStore.getState().stopTraining();
+    await trainingPromise;
+
+    expect(receivedSignal?.aborted).toBe(true);
+    expect(usePlayStore.getState()).toMatchObject({
+      trainingStatus: "idle",
+      activeTrainingRunId: null,
+      trainingAbortController: null,
+      lastTrainingResult: null,
+      trainingErrorMessage: null,
+    });
+  });
+
   it("ノード削除で接続エッジも一緒に消える", () => {
     usePlayStore.setState({
       nodes: [
