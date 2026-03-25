@@ -84,7 +84,14 @@ export function FormNumberStepper({
   };
 
   const nudgeValue = (direction: 1 | -1) => {
-    const nextValue = clamp(value + direction * step, min, max);
+    const stepStr = step.toString();
+    const eMatch = stepStr.match(/e-(\d+)/);
+    const decimals = eMatch
+      ? parseInt(eMatch[1])
+      : (stepStr.split(".")[1]?.length ?? 0);
+    const rawNext = value + direction * step;
+    const rounded = parseFloat(rawNext.toFixed(decimals));
+    const nextValue = clamp(rounded, min, max);
     setDraftValue(null);
     onChange(nextValue);
   };

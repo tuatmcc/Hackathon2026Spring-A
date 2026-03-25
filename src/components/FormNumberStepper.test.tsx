@@ -60,6 +60,42 @@ describe("FormNumberStepper", () => {
     unmount();
   });
 
+  it("nudges by decimal step without floating-point precision artifacts", () => {
+    const { container, committedValue, unmount } = renderStepper({ min: 0, value: 0.1, step: 0.05 });
+
+    const plusButton = container.querySelector("button");
+    if (!plusButton) throw new Error("Plus button not found");
+
+    act(() => {
+      plusButton.click();
+    });
+
+    expect(committedValue.textContent).toBe("0.15");
+
+    act(() => {
+      plusButton.click();
+    });
+
+    expect(committedValue.textContent).toBe("0.2");
+
+    unmount();
+  });
+
+  it("nudges by small decimal step without floating-point precision artifacts", () => {
+    const { container, committedValue, unmount } = renderStepper({ min: 0, value: 0.001, step: 0.001 });
+
+    const plusButton = container.querySelector("button");
+    if (!plusButton) throw new Error("Plus button not found");
+
+    act(() => {
+      plusButton.click();
+    });
+
+    expect(committedValue.textContent).toBe("0.002");
+
+    unmount();
+  });
+
   it("commits the normalized value when Enter is pressed", () => {
     const { input, committedValue, unmount } = renderStepper({ min: 0.0001, value: 0.1 });
 
@@ -80,14 +116,14 @@ describe("FormNumberStepper", () => {
   });
 });
 
-function renderStepper({ min, value }: { min: number; value: number }) {
+function renderStepper({ min, value, step }: { min: number; value: number; step?: number }) {
   const container = document.createElement("div");
   document.body.appendChild(container);
 
   const root = createRoot(container);
 
   act(() => {
-    root.render(<Harness min={min} initialValue={value} />);
+    root.render(<Harness min={min} initialValue={value} step={step} />);
   });
 
   const input = container.querySelector("input");
@@ -98,6 +134,7 @@ function renderStepper({ min, value }: { min: number; value: number }) {
   }
 
   return {
+    container,
     input,
     committedValue,
     unmount: () => {
@@ -125,12 +162,12 @@ function changeValue(input: HTMLInputElement, value: string) {
   });
 }
 
-function Harness({ min, initialValue }: { min: number; initialValue: number }) {
+function Harness({ min, initialValue, step }: { min: number; initialValue: number; step?: number }) {
   const [value, setValue] = useState(initialValue);
 
   return (
     <>
-      <FormNumberStepper value={value} min={min} onChange={setValue} />
+      <FormNumberStepper value={value} min={min} step={step} onChange={setValue} />
       <output>{value}</output>
     </>
   );
