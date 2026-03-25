@@ -27,6 +27,7 @@ import { LayerNode } from "./LayerNode";
 import { FixedNode } from "./FixedNode";
 import { createLayerNode } from "./layerNodeFactory";
 import { isValidLayerConnection, isFixedNodeId } from "./networkEditorUtils";
+import { NETWORK_EDITOR_INTERACTION } from "./networkEditorInteractionConfig";
 import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData, StageDef } from "../types";
 
@@ -428,7 +429,10 @@ export function NetworkEditor({
           defaultEdgeOptions={{
             animated: true,
             style: { strokeWidth: 2, stroke: "#555" },
+            interactionWidth: NETWORK_EDITOR_INTERACTION.edgeInteractionWidth,
           }}
+          connectionRadius={NETWORK_EDITOR_INTERACTION.connectionRadius}
+          reconnectRadius={NETWORK_EDITOR_INTERACTION.reconnectRadius}
           panOnDrag={[0]}
           connectionLineStyle={{
             strokeWidth: 3,
