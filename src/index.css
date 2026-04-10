@@ -369,6 +369,8 @@ code {
 .network-layer-node__handle {
   width: 14px;
   height: 14px;
+  min-width: 14px;
+  min-height: 14px;
   border: 2px solid var(--brass);
   border-radius: 50%;
   background: var(--iron);
@@ -426,6 +428,8 @@ code {
 .network-fixed-node__handle {
   width: 14px;
   height: 14px;
+  min-width: 14px;
+  min-height: 14px;
   border: 2px solid var(--brass);
   border-radius: 50%;
   background: var(--brass);
