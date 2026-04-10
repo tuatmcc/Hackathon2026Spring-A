@@ -30,6 +30,32 @@ function clampToRange(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
 }
 
+function getRegularizationRateConfig(regularization: string | null) {
+  if (regularization === "dropout") {
+    return {
+      label: "Dropout rate",
+      min: 0,
+      max: 1,
+      step: 0.05,
+      tooltip:
+        "Fraction of units dropped during training. Higher values regularize more aggressively.",
+    };
+  }
+
+  if (regularization === "l1" || regularization === "l2") {
+    return {
+      label: `${regularization.toUpperCase()} coefficient (λ)`,
+      min: 0,
+      max: 0.1,
+      step: 0.001,
+      tooltip:
+        "Penalty strength applied to layer weights. Larger values enforce stronger regularization.",
+    };
+  }
+
+  return null;
+}
+
 function HelpTooltip({ text }: { text: string }) {
   const tooltipRef = useRef<HTMLSpanElement | null>(null);
   const bubbleRef = useRef<HTMLSpanElement | null>(null);
@@ -140,14 +166,19 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
   const minSize = sizeOptions[0] ?? 1;
   const maxSize = sizeOptions[sizeOptions.length - 1] ?? 1;
   const sizeLabel = isConvLayer ? "Filters" : "Units";
+  const kernelSize = data.kernelSize ?? 3;
+  const regularizationRateConfig = getRegularizationRateConfig(data.regularization);
   const summaryParts = [
     data.layerType,
     isUnitsEditable
       ? `${currentSize} ${isConvLayer ? "filters" : "units"}`
       : null,
+    isConvLayer ? `k=${kernelSize}` : null,
     data.activation ?? "linear",
     data.regularization === "dropout"
       ? `dropout ${data.regularizationRate.toFixed(2)}`
+      : data.regularization === "l1" || data.regularization === "l2"
+        ? `${data.regularization} λ=${data.regularizationRate.toFixed(3)}`
       : data.regularization,
   ].filter(Boolean);
 
@@ -242,6 +273,42 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
             `flatten` does not use `units`. It reshapes the tensor before the next layer.
           </div>
         )}
+
+        {isConvLayer && (
+          <div className="layer-config__field">
+            <label className="layer-config__label" htmlFor="layer-kernel-size">
+              Kernel size
+              <HelpTooltip text="Spatial kernel size used by Conv2D. Larger kernels increase receptive field and parameter count." />
+            </label>
+            <div className="layer-config__control-group layer-config__control-group--inline">
+              <input
+                id="layer-kernel-size"
+                type="range"
+                min={1}
+                max={7}
+                step={1}
+                value={kernelSize}
+                onChange={(e) =>
+                  updateNodeData(node.id, {
+                    kernelSize: clampToRange(Number(e.target.value), 1, 7),
+                  })
+                }
+              />
+              <FormNumberStepper
+                value={kernelSize}
+                min={1}
+                max={7}
+                step={1}
+                onChange={(value) =>
+                  updateNodeData(node.id, {
+                    kernelSize: clampToRange(value, 1, 7),
+                  })
+                }
+                inputClassName="layer-config__number-input rich-control rich-control--number"
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="layer-config__section">
@@ -290,9 +357,17 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
             id="layer-regularization"
             value={data.regularization ?? ""}
             onValueChange={(nextValue) =>
-              updateNodeData(node.id, {
-                regularization: nextValue || null,
-              })
+              updateNodeData(node.id, nextValue === "l1" || nextValue === "l2"
+                ? {
+                    regularization: nextValue,
+                    regularizationRate:
+                      data.regularization === nextValue
+                        ? data.regularizationRate
+                        : 0.01,
+                  }
+                : {
+                    regularization: nextValue || null,
+                  })
             }
             options={[
               { value: "", label: "none" },
@@ -310,20 +385,20 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
           {regularizationDescription ?? "No regularization selected."}
         </div>
 
-        {data.regularization === "dropout" && (
+        {regularizationRateConfig && (
           <div className="layer-config__field">
-            <label className="layer-config__label" htmlFor="layer-dropout-rate">
-              Dropout rate
-              <HelpTooltip text="Fraction of units dropped during training. Higher values regularize more aggressively." />
+            <label className="layer-config__label" htmlFor="layer-regularization-rate">
+              {regularizationRateConfig.label}
+              <HelpTooltip text={regularizationRateConfig.tooltip} />
             </label>
             <div className="layer-config__control-group layer-config__control-group--inline">
               <input
-                id="layer-dropout-rate"
+                id="layer-regularization-rate"
                 type="range"
                 value={data.regularizationRate}
-                min={0}
-                max={1}
-                step={0.05}
+                min={regularizationRateConfig.min}
+                max={regularizationRateConfig.max}
+                step={regularizationRateConfig.step}
                 onChange={(e) =>
                   updateNodeData(node.id, {
                     regularizationRate: Number(e.target.value),
@@ -332,9 +407,9 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
               />
               <FormNumberStepper
                 value={data.regularizationRate}
-                min={0}
-                max={1}
-                step={0.05}
+                min={regularizationRateConfig.min}
+                max={regularizationRateConfig.max}
+                step={regularizationRateConfig.step}
                 onChange={(value) =>
                   updateNodeData(node.id, {
                     regularizationRate: value,

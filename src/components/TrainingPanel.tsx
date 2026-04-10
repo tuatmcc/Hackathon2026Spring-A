@@ -107,12 +107,14 @@ export function TrainingPanel() {
 
       return {
         parameterCount: estimate.parameterCount,
+        parameterBreakdown: estimate.parameterBreakdown,
         cap,
         isExceeded: estimate.parameterCount > cap,
       };
     } catch {
       return {
         parameterCount: null,
+        parameterBreakdown: [],
         cap,
         isExceeded: false,
       };
@@ -228,12 +230,19 @@ export function TrainingPanel() {
 
       {parameterBudget && (
         <div style={parameterBudgetStyle(parameterBudget.isExceeded)}>
-          <span style={parameterBudgetLabelStyle}>Params</span>
-          <strong>
-            {parameterBudget.parameterCount == null
-              ? `? / ${formatParameterCount(parameterBudget.cap)}`
-              : `${formatParameterCount(parameterBudget.parameterCount)} / ${formatParameterCount(parameterBudget.cap)}`}
-          </strong>
+          <div style={parameterBudgetHeaderStyle}>
+            <span style={parameterBudgetLabelStyle}>Params</span>
+            <strong>
+              {parameterBudget.parameterCount == null
+                ? `? / ${formatParameterCount(parameterBudget.cap)}`
+                : `${formatParameterCount(parameterBudget.parameterCount)} / ${formatParameterCount(parameterBudget.cap)}`}
+            </strong>
+          </div>
+          {parameterBudget.parameterBreakdown.length > 0 && (
+            <div style={parameterBudgetBreakdownStyle}>
+              {parameterBudget.parameterBreakdown.join(" | ")}
+            </div>
+          )}
         </div>
       )}
 
@@ -578,6 +587,21 @@ const parameterBudgetLabelStyle: CSSProperties = {
   color: "var(--text-muted)",
 };
 
+const parameterBudgetHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+const parameterBudgetBreakdownStyle: CSSProperties = {
+  marginTop: 4,
+  color: "var(--text-muted)",
+  fontSize: 9,
+  fontWeight: 500,
+  lineHeight: 1.4,
+};
+
 const validationMessageStyle: CSSProperties = {
   marginTop: 8,
   padding: "8px 10px",
@@ -590,10 +614,7 @@ const validationMessageStyle: CSSProperties = {
 
 function parameterBudgetStyle(isExceeded: boolean): CSSProperties {
   return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    display: "block",
     marginTop: 10,
     padding: "8px 10px",
     border: `1px solid ${isExceeded ? "rgba(221, 68, 68, 0.28)" : "rgba(181, 137, 33, 0.18)"}`,
