@@ -44,7 +44,7 @@ function getRegularizationRateConfig(regularization: string | null) {
 
   if (regularization === "l1" || regularization === "l2") {
     return {
-      label: `${regularization.toUpperCase()} coefficient (λ)`,
+      label: `${regularization.toUpperCase()} coefficient (lambda)`,
       min: 0,
       max: 0.1,
       step: 0.001,
@@ -54,6 +54,26 @@ function getRegularizationRateConfig(regularization: string | null) {
   }
 
   return null;
+}
+
+function getRegularizationUpdate(
+  currentRegularization: string | null,
+  currentRate: number,
+  nextValue: string,
+) {
+  if (nextValue === "l1" || nextValue === "l2") {
+    return {
+      regularization: nextValue,
+      regularizationRate:
+        currentRegularization === nextValue
+          ? currentRate
+          : 0.01,
+    };
+  }
+
+  return {
+    regularization: nextValue || null,
+  };
 }
 
 function HelpTooltip({ text }: { text: string }) {
@@ -178,7 +198,7 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
     data.regularization === "dropout"
       ? `dropout ${data.regularizationRate.toFixed(2)}`
       : data.regularization === "l1" || data.regularization === "l2"
-        ? `${data.regularization} λ=${data.regularizationRate.toFixed(3)}`
+        ? `${data.regularization} lambda=${data.regularizationRate.toFixed(3)}`
       : data.regularization,
   ].filter(Boolean);
 
@@ -357,17 +377,14 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
             id="layer-regularization"
             value={data.regularization ?? ""}
             onValueChange={(nextValue) =>
-              updateNodeData(node.id, nextValue === "l1" || nextValue === "l2"
-                ? {
-                    regularization: nextValue,
-                    regularizationRate:
-                      data.regularization === nextValue
-                        ? data.regularizationRate
-                        : 0.01,
-                  }
-                : {
-                    regularization: nextValue || null,
-                  })
+              updateNodeData(
+                node.id,
+                getRegularizationUpdate(
+                  data.regularization,
+                  data.regularizationRate,
+                  nextValue,
+                ),
+              )
             }
             options={[
               { value: "", label: "none" },

@@ -597,7 +597,7 @@ const parameterBudgetHeaderStyle: CSSProperties = {
 const parameterBudgetBreakdownStyle: CSSProperties = {
   marginTop: 4,
   color: "var(--text-muted)",
-  fontSize: 9,
+  fontSize: 12,
   fontWeight: 500,
   lineHeight: 1.4,
 };
