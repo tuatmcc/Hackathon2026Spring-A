@@ -41,6 +41,18 @@ interface Props {
   stage: StageDef | null;
 }
 
+type BodyDropMode =
+  | {
+      type: "connect";
+      source: string;
+      sourceHandle: string | null;
+    }
+  | {
+      type: "reconnect-target";
+      edge: Edge;
+    }
+  | null;
+
 export function NetworkEditor({
   nodes,
   edges,
@@ -52,6 +64,9 @@ export function NetworkEditor({
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [reconnectingEdgeId, setReconnectingEdgeId] = useState<string | null>(null);
+  const [bodyDropMode, setBodyDropMode] = useState<BodyDropMode>(null);
+  const [bodyDropTargetId, setBodyDropTargetId] = useState<string | null>(null);
+  const [bodyDropTargetValid, setBodyDropTargetValid] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{
     startClientX: number;
     startClientY: number;
@@ -101,9 +116,33 @@ export function NetworkEditor({
   }, [stage, storedFixedNodes]);
   
   const allNodes = useMemo(() => {
-    if (!stage) return nodes;
-    return [...fixedNodes, ...nodes];
-  }, [fixedNodes, nodes, stage]);
+    const baseNodes = stage ? [...fixedNodes, ...nodes] : nodes;
+
+    return baseNodes.map((node) => {
+      const classNames = [node.className];
+
+      if (
+        bodyDropMode &&
+        ((bodyDropMode.type === "connect" && bodyDropMode.source === node.id) ||
+          (bodyDropMode.type === "reconnect-target" && bodyDropMode.edge.source === node.id))
+      ) {
+        classNames.push("network-editor__node--connection-source");
+      }
+
+      if (bodyDropTargetId === node.id) {
+        classNames.push(
+          bodyDropTargetValid
+            ? "network-editor__node--drop-target"
+            : "network-editor__node--drop-target-invalid",
+        );
+      }
+
+      return {
+        ...node,
+        className: classNames.filter(Boolean).join(" "),
+      };
+    });
+  }, [bodyDropMode, bodyDropTargetId, bodyDropTargetValid, fixedNodes, nodes, stage]);
 
   const allEdges = useMemo(() => {
     if (!stage) return edges;
@@ -185,13 +224,205 @@ export function NetworkEditor({
     [allEdges, allNodes, onReconnect, stage],
   );
 
-  const handleReconnectStart = useCallback((_: unknown, edge: Edge) => {
-    setReconnectingEdgeId(edge.id);
+  const clearBodyDropPreview = useCallback(() => {
+    setBodyDropMode(null);
+    setBodyDropTargetId(null);
+    setBodyDropTargetValid(false);
   }, []);
 
-  const handleReconnectEnd = useCallback(() => {
-    setReconnectingEdgeId(null);
+  const buildBodyDropConnection = useCallback(
+    (targetNodeId: string): Connection | null => {
+      if (bodyDropMode?.type === "connect") {
+        return {
+          source: bodyDropMode.source,
+          sourceHandle: bodyDropMode.sourceHandle,
+          target: targetNodeId,
+          targetHandle: null,
+        };
+      }
+
+      if (bodyDropMode?.type === "reconnect-target") {
+        return {
+          source: bodyDropMode.edge.source,
+          sourceHandle: bodyDropMode.edge.sourceHandle ?? null,
+          target: targetNodeId,
+          targetHandle: null,
+        };
+      }
+
+      return null;
+    },
+    [bodyDropMode],
+  );
+
+  const getClientPoint = useCallback((event: MouseEvent | TouchEvent) => {
+    if ("changedTouches" in event && event.changedTouches.length > 0) {
+      const touch = event.changedTouches[0];
+      return { x: touch.clientX, y: touch.clientY };
+    }
+
+    if ("clientX" in event) {
+      return { x: event.clientX, y: event.clientY };
+    }
+
+    return null;
   }, []);
+
+  const getNodeIdAtClientPoint = useCallback((clientX: number, clientY: number) => {
+    if (typeof document === "undefined") {
+      return null;
+    }
+
+    const nodeElement = document
+      .elementsFromPoint(clientX, clientY)
+      .map((element) => element.closest(".react-flow__node"))
+      .find((element): element is HTMLElement => element instanceof HTMLElement);
+
+    return nodeElement?.dataset.id ?? null;
+  }, []);
+
+  const updateBodyDropPreview = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!bodyDropMode) {
+        return;
+      }
+
+      const targetNodeId = getNodeIdAtClientPoint(clientX, clientY);
+      if (!targetNodeId) {
+        setBodyDropTargetId(null);
+        setBodyDropTargetValid(false);
+        return;
+      }
+
+      const connection = buildBodyDropConnection(targetNodeId);
+      setBodyDropTargetId(targetNodeId);
+      setBodyDropTargetValid(connection ? validateConnection(connection) : false);
+    },
+    [bodyDropMode, buildBodyDropConnection, getNodeIdAtClientPoint, validateConnection],
+  );
+
+  const handleConnectStart = useCallback(
+    (_: MouseEvent | TouchEvent, params: { nodeId: string | null; handleId: string | null; handleType: string | null }) => {
+      if (!params.nodeId || params.handleType !== "source") {
+        clearBodyDropPreview();
+        return;
+      }
+
+      setBodyDropMode({
+        type: "connect",
+        source: params.nodeId,
+        sourceHandle: params.handleId,
+      });
+    },
+    [clearBodyDropPreview],
+  );
+
+  const handleConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, connectionState: { toHandle: unknown }) => {
+      if (connectionState.toHandle) {
+        clearBodyDropPreview();
+        return;
+      }
+
+      const point = getClientPoint(event);
+      const targetNodeId = point ? getNodeIdAtClientPoint(point.x, point.y) : null;
+      const connection = targetNodeId ? buildBodyDropConnection(targetNodeId) : null;
+
+      if (connection && validateConnection(connection)) {
+        onConnect(connection);
+      }
+
+      clearBodyDropPreview();
+    },
+    [
+      buildBodyDropConnection,
+      clearBodyDropPreview,
+      getClientPoint,
+      getNodeIdAtClientPoint,
+      onConnect,
+      validateConnection,
+    ],
+  );
+
+  const handleReconnectStart = useCallback((_: unknown, edge: Edge, handleType: "source" | "target") => {
+    setReconnectingEdgeId(edge.id);
+    if (handleType === "target") {
+      setBodyDropMode({
+        type: "reconnect-target",
+        edge,
+      });
+      return;
+    }
+
+    clearBodyDropPreview();
+  }, [clearBodyDropPreview]);
+
+  const handleReconnectEnd = useCallback(
+    (
+      event: MouseEvent | TouchEvent,
+      edge: Edge,
+      handleType: "source" | "target",
+      connectionState: { toHandle: unknown },
+    ) => {
+      if (handleType === "target" && !connectionState.toHandle) {
+        const point = getClientPoint(event);
+        const targetNodeId = point ? getNodeIdAtClientPoint(point.x, point.y) : null;
+        const connection = targetNodeId ? buildBodyDropConnection(targetNodeId) : null;
+
+        if (connection && validateConnection(connection)) {
+          onReconnect(edge, connection);
+          setReconnectingEdgeId(null);
+          clearBodyDropPreview();
+          return;
+        }
+      }
+
+      clearBodyDropPreview();
+      setReconnectingEdgeId(null);
+    },
+    [
+      buildBodyDropConnection,
+      clearBodyDropPreview,
+      getClientPoint,
+      getNodeIdAtClientPoint,
+      onReconnect,
+      validateConnection,
+    ],
+  );
+
+  useEffect(() => {
+    if (!bodyDropMode) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      updateBodyDropPreview(event.clientX, event.clientY);
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) {
+        return;
+      }
+
+      updateBodyDropPreview(touch.clientX, touch.clientY);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("touchmove", handleTouchMove);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [bodyDropMode, updateBodyDropPreview]);
+
+  useEffect(() => {
+    if (!bodyDropMode) {
+      setBodyDropTargetId(null);
+      setBodyDropTargetValid(false);
+    }
+  }, [bodyDropMode]);
 
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
@@ -419,6 +650,8 @@ export function NetworkEditor({
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
+          onConnectStart={handleConnectStart}
+          onConnectEnd={handleConnectEnd}
           onReconnect={handleReconnect}
           onReconnectStart={handleReconnectStart}
           onReconnectEnd={handleReconnectEnd}
@@ -442,7 +675,7 @@ export function NetworkEditor({
           fitView
           onPaneContextMenu={handlePaneContextMenu}
         >
-          <Background />
+          <Background gap={24} size={1.2} color="rgba(124, 97, 38, 0.18)" />
           <Controls />
         </ReactFlow>
         {selectionBox && (

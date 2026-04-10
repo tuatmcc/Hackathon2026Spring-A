@@ -21,26 +21,43 @@ export function FixedNode({ data, selected }: NodeProps) {
         <Handle
           type="source"
           position={Position.Right}
-          className="network-fixed-node__handle"
+          className="network-fixed-node__handle network-fixed-node__handle--source"
         />
       )}
 
+      <div className="network-fixed-node__eyebrow">
+        <span className="network-fixed-node__pill">
+          {isInput ? "Dataset Entry" : "Prediction Head"}
+        </span>
+      </div>
       <div className="network-fixed-node__header">{label}</div>
-      <div className="network-fixed-node__meta">
-        <span>{shapeStr}</span>
+      <div className="network-fixed-node__stats">
+        <div className="network-fixed-node__stat">
+          <span>Shape</span>
+          <strong>{shapeStr}</strong>
+        </div>
         {!isInput && nodeData.activation && (
-          <span>{nodeData.activation}</span>
+          <div className="network-fixed-node__stat">
+            <span>Activation</span>
+            <strong>{nodeData.activation.toUpperCase()}</strong>
+          </div>
         )}
         {!isInput && nodeData.units !== undefined && (
-          <span>{nodeData.units} units</span>
+          <div className="network-fixed-node__stat">
+            <span>Units</span>
+            <strong>{nodeData.units}</strong>
+          </div>
         )}
       </div>
+      {!isInput && (
+        <div className="network-fixed-node__drop-indicator">Drop edge here</div>
+      )}
 
       {!isInput && (
         <Handle
           type="target"
           position={Position.Left}
-          className="network-fixed-node__handle"
+          className="network-fixed-node__handle network-fixed-node__handle--target"
         />
       )}
     </div>
