@@ -26,7 +26,9 @@ export function NodePalette() {
 
   return (
     <div className="node-palette">
-      <strong className="node-palette__title">Layers</strong>
+      <div className="node-palette__copy">
+        <strong className="node-palette__title">Build</strong>
+      </div>
       <div className="node-palette__list">
         {availableLayers.map((skill) => (
           <button

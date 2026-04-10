@@ -202,6 +202,27 @@ describe("isValidLayerConnection", () => {
     ).toBe(true);
   });
 
+  it("ノードの見た目上の左右位置に依存せず接続を許可する", () => {
+    const nodes = [
+      ...createFixedNodes(vectorStage),
+      createLayerNode("dense-1", "dense", -120),
+    ];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "__input__",
+          target: "dense-1",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        [],
+        vectorStage,
+      ),
+    ).toBe(true);
+  });
+
   it("再接続時は差し替え対象の既存エッジを無視して検証できる", () => {
     const nodes = [
       ...createFixedNodes(vectorStage),
