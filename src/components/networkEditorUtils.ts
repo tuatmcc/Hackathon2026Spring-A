@@ -269,10 +269,6 @@ export function isValidLayerConnection(
     return false;
   }
 
-  if (sourceNode.position.x >= targetNode.position.x) {
-    return false;
-  }
-
   if (relevantEdges.some((edge) => edge.source === source && edge.target === target)) {
     return false;
   }
