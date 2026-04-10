@@ -249,6 +249,29 @@ describe("isValidLayerConnection", () => {
       ),
     ).toBe(true);
   });
+
+  it("ノードの左右位置に依存せず接続を許可する", () => {
+    const nodes = [
+      ...createFixedNodes(vectorStage),
+      createLayerNode("dense-1", "dense", 420),
+      createLayerNode("dense-2", "dense", 240),
+    ];
+    const edges: Edge[] = [{ id: "edge-input", source: "__input__", target: "dense-1" }];
+
+    expect(
+      isValidLayerConnection(
+        {
+          source: "dense-1",
+          target: "dense-2",
+          sourceHandle: null,
+          targetHandle: null,
+        },
+        nodes,
+        edges,
+        vectorStage,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("validateSequentialLayerGraph", () => {
