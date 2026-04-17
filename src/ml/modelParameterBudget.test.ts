@@ -67,7 +67,6 @@ describe("modelParameterBudget", () => {
       {
         layerType: "conv2d",
         units: 4,
-        filters: 4,
         kernelSize: 3,
         activation: "relu",
         regularization: null,
@@ -102,7 +101,6 @@ describe("modelParameterBudget", () => {
       {
         layerType: "conv2d",
         units: 4,
-        filters: 4,
         kernelSize: 5,
         activation: "relu",
         regularization: null,

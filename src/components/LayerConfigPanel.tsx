@@ -2,7 +2,7 @@
 // LayerConfigPanel — 選択中ノードの設定UI
 //
 // 【担当者へ】
-// 選択中のノードの units, activation, regularization を編集する。
+// 選択中のノードの size, activation, regularization を編集する。
 // activation/regularization の選択肢は unlockedSkills でフィルタ。
 // ============================================================
 
@@ -179,7 +179,7 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
   const isUnitsEditable = data.layerType !== "flatten";
   const isConvLayer = data.layerType === "conv2d";
   const sizeOptions = getLayerSizeOptions(data.layerType, unlockedSkills);
-  const currentSize = isConvLayer ? (data.filters ?? data.units) : data.units;
+  const currentSize = data.units;
   const sizeSliderIndexCandidate = sizeOptions.findIndex((value) => value >= currentSize);
   const sizeSliderIndex =
     sizeSliderIndexCandidate === -1 ? sizeOptions.length - 1 : sizeSliderIndexCandidate;
@@ -253,7 +253,6 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
                     isConvLayer
                       ? {
                           units: sizeOptions[Number(e.target.value)] ?? currentSize,
-                          filters: sizeOptions[Number(e.target.value)] ?? currentSize,
                         }
                       : {
                           units: sizeOptions[Number(e.target.value)] ?? currentSize,
@@ -277,7 +276,6 @@ export function LayerConfigPanel({ selectedNodeId, onDeleteNode }: Props) {
                     isConvLayer
                       ? {
                           units: clampToRange(value, minSize, maxSize),
-                          filters: clampToRange(value, minSize, maxSize),
                         }
                       : {
                           units: clampToRange(value, minSize, maxSize),

@@ -4,9 +4,7 @@ import type { LayerNodeData } from "../types";
 export function LayerNode({ data, selected }: NodeProps) {
   const layerData = data as LayerNodeData;
   const activationLabel = (layerData.activation ?? "linear").toUpperCase();
-  const sizeValue = layerData.layerType === "conv2d"
-    ? (layerData.filters ?? layerData.units)
-    : layerData.units;
+  const sizeValue = layerData.units;
   const sizeLabel = layerData.layerType === "conv2d" ? "Filters" : "Width";
 
   return (

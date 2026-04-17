@@ -33,7 +33,6 @@ export function createLayerNode(
       regularizationRate: 0.2,
       ...(layerType === "conv2d"
         ? {
-            filters: defaultSize,
             kernelSize: 3,
           }
         : {}),

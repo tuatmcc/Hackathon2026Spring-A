@@ -92,7 +92,7 @@ export function buildModel(
       case "conv2d":
         model.add(
           tf.layers.conv2d({
-            filters: layer.filters ?? layer.units,
+            filters: layer.units,
             kernelSize: layer.kernelSize ?? 3,
             activation: (layer.activation ?? "relu") as never,
             kernelRegularizer,

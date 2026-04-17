@@ -85,12 +85,11 @@ describe("layerSizeOptions", () => {
       sanitizeLayerNodeData({
         layerType: "conv2d",
         units: 32,
-        filters: 32,
         kernelSize: 3,
         activation: "relu",
         regularization: null,
         regularizationRate: 0,
       }),
-    ).toMatchObject({ units: 32, filters: 32 });
+    ).toMatchObject({ units: 32 });
   });
 });
