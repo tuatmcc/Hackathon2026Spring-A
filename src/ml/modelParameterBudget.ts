@@ -16,6 +16,7 @@ export interface ModelParameterEstimate {
   parameterCount: number;
   outputShape: number[];
   isOutputShapeValid: boolean;
+  parameterBreakdown: string[];
 }
 
 function multiplyShape(shape: number[]) {
@@ -100,24 +101,38 @@ export function estimateModelParameterCount(
 ): ModelParameterEstimate {
   let currentShape = [...stage.inputShape];
   let parameterCount = 0;
+  const parameterBreakdown: string[] = [];
+  let trainableLayerIndex = 0;
 
   for (const layer of layers) {
     switch (layer.layerType) {
       case "dense": {
+        const inputDimension = currentShape[currentShape.length - 1];
         const denseResult = applyDenseShape(currentShape, layer.units);
         currentShape = denseResult.nextShape;
         parameterCount += denseResult.parameterCount;
+        trainableLayerIndex += 1;
+        parameterBreakdown.push(
+          `L${trainableLayerIndex} Dense: ${inputDimension}×${layer.units}+${layer.units} = ${denseResult.parameterCount}`,
+        );
         break;
       }
 
       case "conv2d": {
+        const channels = currentShape[2];
+        const filters = layer.filters ?? layer.units;
+        const kernelSize = layer.kernelSize ?? 3;
         const convResult = applyConv2dShape(
           currentShape,
-          layer.filters ?? layer.units,
-          layer.kernelSize ?? 3,
+          filters,
+          kernelSize,
         );
         currentShape = convResult.nextShape;
         parameterCount += convResult.parameterCount;
+        trainableLayerIndex += 1;
+        parameterBreakdown.push(
+          `L${trainableLayerIndex} Conv2D: ${kernelSize}×${kernelSize}×${channels}×${filters}+${filters} = ${convResult.parameterCount}`,
+        );
         break;
       }
 
@@ -128,19 +143,29 @@ export function estimateModelParameterCount(
       }
 
       default: {
+        const inputDimension = currentShape[currentShape.length - 1];
         const denseResult = applyDenseShape(currentShape, layer.units);
         currentShape = denseResult.nextShape;
         parameterCount += denseResult.parameterCount;
+        trainableLayerIndex += 1;
+        parameterBreakdown.push(
+          `L${trainableLayerIndex} ${layer.layerType}: ${inputDimension}×${layer.units}+${layer.units} = ${denseResult.parameterCount}`,
+        );
       }
     }
   }
 
+  const outputInputDimension = currentShape[currentShape.length - 1];
   const outputResult = applyDenseShape(currentShape, stage.outputUnits);
   parameterCount += outputResult.parameterCount;
+  parameterBreakdown.push(
+    `Output: ${outputInputDimension}×${stage.outputUnits}+${stage.outputUnits} = ${outputResult.parameterCount}`,
+  );
 
   return {
     parameterCount,
     outputShape: outputResult.nextShape,
     isOutputShapeValid: outputResult.nextShape.length === 1,
+    parameterBreakdown,
   };
 }
