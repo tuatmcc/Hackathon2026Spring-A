@@ -2,7 +2,7 @@ import type { LayerNodeData } from "./types";
 
 export const DENSE_BASE_UNIT_OPTIONS = [1, 2] as const;
 export const MAX_DENSE_UNITS = 12;
-export const CONV_FILTER_OPTIONS = [4, 8, 12, 16, 24, 32] as const;
+export const CONV_FILTER_OPTIONS = [1, 2, 4, 8, 16, 24] as const;
 
 export const DENSE_WIDTH_SKILL_OPTIONS = [
   { skillId: "dense_width_cap_4", value: 4 },
