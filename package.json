@@ -9,12 +9,14 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:nyc": "NYC_INSTRUMENT=true nyc --all --instrument false --reporter=text --reporter=json-summary --extension .ts --extension .tsx --include src --exclude '**/*.test.*' --exclude 'src/main.tsx' vitest run"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.2.6",
     "@tensorflow/tfjs": "^4.22.0",
     "@xyflow/react": "^12.10.1",
+    "nyc": "^18.0.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "zustand": "^5.0.12"

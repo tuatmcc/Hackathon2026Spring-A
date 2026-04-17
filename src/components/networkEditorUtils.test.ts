@@ -99,7 +99,7 @@ describe("isValidLayerConnection", () => {
   it("画像入力を conv2d に接続できる", () => {
     const nodes = [
       ...createFixedNodes(imageStage),
-      createLayerNode("conv-1", "conv2d", 180, { filters: 8, kernelSize: 3 }),
+      createLayerNode("conv-1", "conv2d", 180, { units: 8, kernelSize: 3 }),
     ];
 
     expect(
@@ -120,7 +120,7 @@ describe("isValidLayerConnection", () => {
   it("flatten 前の conv2d 出力を output に直接つなぐ接続を拒否する", () => {
     const nodes = [
       ...createFixedNodes(imageStage),
-      createLayerNode("conv-1", "conv2d", 180, { filters: 8, kernelSize: 3 }),
+      createLayerNode("conv-1", "conv2d", 180, { units: 8, kernelSize: 3 }),
     ];
     const edges: Edge[] = [{ id: "e1", source: "__input__", target: "conv-1" }];
 
@@ -142,7 +142,7 @@ describe("isValidLayerConnection", () => {
   it("conv2d の後は flatten を接続できる", () => {
     const nodes = [
       ...createFixedNodes(imageStage),
-      createLayerNode("conv-1", "conv2d", 180, { filters: 8, kernelSize: 3 }),
+      createLayerNode("conv-1", "conv2d", 180, { units: 8, kernelSize: 3 }),
       createLayerNode("flatten-1", "flatten", 360, { units: 0, activation: null }),
     ];
     const edges: Edge[] = [{ id: "e1", source: "__input__", target: "conv-1" }];

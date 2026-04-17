@@ -126,7 +126,6 @@ describe("buildModel", () => {
           activation: "relu",
           regularization: null,
           regularizationRate: 0,
-          filters: 32,
           kernelSize: 3,
         },
       ];
@@ -154,7 +153,6 @@ describe("buildModel", () => {
           activation: "relu",
           regularization: null,
           regularizationRate: 0,
-          filters: 32,
           kernelSize: 3,
         },
         { layerType: "flatten", units: 0, activation: null, regularization: null, regularizationRate: 0 },

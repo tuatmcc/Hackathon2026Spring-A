@@ -52,7 +52,7 @@ function inferLayerOutputShape(
       return [layer.units];
 
     case "conv2d": {
-      const filters = layer.filters ?? layer.units;
+      const filters = layer.units;
       const kernelSize = layer.kernelSize ?? 3;
 
       if (inputShape === null) {

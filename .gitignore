@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 mocks/
+
+.nyc_output
+coverage

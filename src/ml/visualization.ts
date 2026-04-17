@@ -1,6 +1,7 @@
 import * as tf from "@tensorflow/tfjs";
 import type {
   DecisionBoundarySnapshot,
+  DigitsPrediction,
   DigitsPredictionSnapshot,
   RegressionCurveSnapshot,
   SerializedDataset,
@@ -19,6 +20,18 @@ export const DEFAULT_VISUALIZATION_DOMAIN: VisualizationDomain = {
 
 export const DEFAULT_BOUNDARY_GRID_SIZE = 36;
 export const DEFAULT_REGRESSION_CURVE_POINTS = 96;
+
+function getSampleSize(inputShape: number[]) {
+  return inputShape.reduce((product, dimension) => product * dimension, 1);
+}
+
+function clampSampleIndex(sampleIndex: number, sampleCount: number) {
+  if (sampleCount <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(sampleIndex, sampleCount - 1));
+}
 
 export function serializeDataset(
   dataset: Dataset,
@@ -140,6 +153,63 @@ export function createDigitsPredictionSnapshot(
   };
 }
 
+export function createDigitsLazySnapshot(options?: {
+  epoch?: number;
+}): DigitsPredictionSnapshot {
+  return {
+    kind: "digits",
+    predictions: [],
+    epoch: options?.epoch,
+  };
+}
+
+export async function predictDigitsSample(
+  model: tf.LayersModel,
+  dataset: SerializedDataset,
+  stage: StageDef,
+  sampleIndex: number,
+): Promise<DigitsPrediction | null> {
+  if (!isDigitsStage(stage) || dataset.sampleCount <= 0) {
+    return null;
+  }
+
+  const clampedSampleIndex = clampSampleIndex(sampleIndex, dataset.sampleCount);
+  const sampleSize = getSampleSize(stage.inputShape);
+  const sampleOffset = clampedSampleIndex * sampleSize;
+  const sampleValues = dataset.xs.slice(sampleOffset, sampleOffset + sampleSize);
+  const [height, width, channels] = stage.inputShape;
+  const inputTensor = tf.tensor4d(sampleValues, [1, height, width, channels]);
+  const predictionTensor = model.predict(inputTensor) as tf.Tensor;
+  const labelTensor = predictionTensor.argMax(-1);
+  const confidenceTensor = predictionTensor.max(-1);
+
+  try {
+    const [predictionValues, predictedLabels, confidences] = await Promise.all([
+      predictionTensor.data(),
+      labelTensor.data(),
+      confidenceTensor.data(),
+    ]);
+    const predictedLabel = predictedLabels[0] ?? 0;
+    const confidence = confidences[0] ?? 0;
+
+    return {
+      sampleIndex: clampedSampleIndex,
+      predictedLabel,
+      confidence: Number.isFinite(confidence) ? confidence : 0,
+      classConfidences: Array.from(
+        { length: stage.outputUnits },
+        (_, unit) => predictionValues[unit] ?? 0,
+      ).map((value) => (Number.isFinite(value) ? value : 0)),
+      isCorrect: predictedLabel === (dataset.labels[clampedSampleIndex] ?? -1),
+    };
+  } finally {
+    inputTensor.dispose();
+    predictionTensor.dispose();
+    labelTensor.dispose();
+    confidenceTensor.dispose();
+  }
+}
+
 export function createRegressionCurveSnapshot(
   model: tf.LayersModel,
   dataset: Dataset,
@@ -207,7 +277,7 @@ export function createVisualizationSnapshot(
   }
 
   if (isDigitsStage(stage)) {
-    return createDigitsPredictionSnapshot(model, dataset, stage, options);
+    return createDigitsLazySnapshot(options);
   }
 
   if (isRegressionCurveStage(stage)) {

@@ -81,7 +81,6 @@ describe("Digits統合テスト", () => {
         activation: "relu", 
         regularization: null, 
         regularizationRate: 0,
-        filters: 8,
         kernelSize: 3,
       },
       { layerType: "flatten", units: 0, activation: null, regularization: null, regularizationRate: 0 },

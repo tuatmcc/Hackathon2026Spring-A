@@ -120,7 +120,7 @@ export function estimateModelParameterCount(
 
       case "conv2d": {
         const channels = currentShape[2];
-        const filters = layer.filters ?? layer.units;
+        const filters = layer.units;
         const kernelSize = layer.kernelSize ?? 3;
         const convResult = applyConv2dShape(
           currentShape,
