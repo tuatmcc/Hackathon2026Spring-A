@@ -55,6 +55,7 @@ export function DataVisualization() {
   const visualizationSnapshot = useVisualizerStore((s) => s.visualizationSnapshot);
   const visualizationStageId = useVisualizerStore((s) => s.visualizationStageId);
   const prepareVisualization = useVisualizerStore((s) => s.prepareVisualization);
+  const ensureDigitsPrediction = useVisualizerStore((s) => s.ensureDigitsPrediction);
   const [digitsSampleState, setDigitsSampleState] = useState({
     datasetKey: "",
     sampleIndex: 0,
@@ -101,6 +102,24 @@ export function DataVisualization() {
     requestedDigitsSampleIndex,
     digitsSampleCount,
   );
+
+  useEffect(() => {
+    if (!stage || !activeDataset || !isDigitsStage(stage)) {
+      return;
+    }
+
+    void ensureDigitsPrediction(stage, clampedDigitsSampleIndex);
+
+    if (clampedDigitsSampleIndex + 1 < digitsSampleCount) {
+      void ensureDigitsPrediction(stage, clampedDigitsSampleIndex + 1);
+    }
+  }, [
+    activeDataset,
+    clampedDigitsSampleIndex,
+    digitsSampleCount,
+    ensureDigitsPrediction,
+    stage,
+  ]);
 
   const digitsSample = useMemo(() => {
     if (!stage || !activeDataset || !isDigitsStage(stage)) {

@@ -6,6 +6,9 @@ import * as tf from "@tensorflow/tfjs";
 import type { StageDef } from "../types";
 import {
   createDigitsPredictionSnapshot,
+  createDigitsLazySnapshot,
+  createVisualizationSnapshot,
+  predictDigitsSample,
   createRegressionCurveSnapshot,
   serializeDataset,
 } from "./visualization";
@@ -102,6 +105,78 @@ describe("visualization", () => {
     });
     expect(snapshot?.predictions[1]?.confidence ?? 0).toBeCloseTo(0.76, 6);
     expect(snapshot?.predictions[1]?.classConfidences[0] ?? 0).toBeCloseTo(0.76, 6);
+
+    xs.dispose();
+    ys.dispose();
+    labelTensor.dispose();
+  });
+
+  it("createDigitsLazySnapshotが空の予測キャッシュを返す", () => {
+    expect(createDigitsLazySnapshot({ epoch: 3 })).toEqual({
+      kind: "digits",
+      predictions: [],
+      epoch: 3,
+    });
+  });
+
+  it("predictDigitsSampleが単一サンプルだけを推論できる", async () => {
+    const labels = [1, 2];
+    const xs = new Array(2 * 8 * 8).fill(0);
+    const ys = labels.flatMap((label) =>
+      Array.from({ length: 10 }, (_, unit) => (unit === label ? 1 : 0)),
+    );
+    const mockModel = {
+      predict: () =>
+        tf.tensor2d(
+          [[0.76, 0.02, 0.1, 0.02, 0.02, 0.02, 0.02, 0.02, 0.0, 0.02]],
+          [1, 10],
+        ),
+    } as unknown as tf.LayersModel;
+
+    const prediction = await predictDigitsSample(
+      mockModel,
+      {
+        sampleCount: 2,
+        inputShape: [8, 8, 1],
+        outputUnits: 10,
+        xs,
+        ys,
+        labels,
+        imageShape: [8, 8, 1],
+      },
+      digitsStage,
+      1,
+    );
+
+    expect(prediction).toMatchObject({
+      sampleIndex: 1,
+      predictedLabel: 0,
+      isCorrect: false,
+    });
+    expect(prediction?.confidence ?? 0).toBeCloseTo(0.76, 6);
+    expect(prediction?.classConfidences[0] ?? 0).toBeCloseTo(0.76, 6);
+  });
+
+  it("createVisualizationSnapshotはdigitsではlazy snapshotを返す", () => {
+    const xs = tf.tensor4d(new Array(2 * 8 * 8).fill(0), [2, 8, 8, 1]);
+    const labelTensor = tf.tensor1d([1, 2], "int32");
+    const ys = tf.oneHot(labelTensor, 10);
+    const mockModel = {
+      predict: () => tf.tensor2d(new Array(20).fill(0.1), [2, 10]),
+    } as unknown as tf.LayersModel;
+
+    const snapshot = createVisualizationSnapshot(
+      mockModel,
+      { xs, ys },
+      digitsStage,
+      { epoch: 4 },
+    );
+
+    expect(snapshot).toEqual({
+      kind: "digits",
+      predictions: [],
+      epoch: 4,
+    });
 
     xs.dispose();
     ys.dispose();

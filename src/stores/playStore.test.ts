@@ -67,6 +67,8 @@ describe("playStore fixed nodes", () => {
       visualizationStageId: null,
       datasetPreview: null,
       visualizationSnapshot: null,
+      visualizationModelStageId: null,
+      visualizationModel: null,
       prepareVisualization: vi.fn(async () => ({
         sampleCount: 1,
         inputShape: linearStage.inputShape,
@@ -77,6 +79,8 @@ describe("playStore fixed nodes", () => {
         imageShape: null,
       })),
       setVisualizationSnapshot: vi.fn(),
+      setVisualizationModel: vi.fn(),
+      ensureDigitsPrediction: vi.fn(async () => {}),
     });
   });
 

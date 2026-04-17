@@ -126,6 +126,15 @@ function getAvailableOptimizerIds(unlockedSkills: string[]) {
   return optimizerSkillIds.filter((skillId) => unlockedSkills.includes(skillId));
 }
 
+function isDigitsStage(stage: StageDef) {
+  return (
+    stage.inputShape.length === 3 &&
+    stage.inputShape[0] === 8 &&
+    stage.inputShape[1] === 8 &&
+    stage.inputShape[2] === 1
+  );
+}
+
 export const usePlayStore = create<PlayStore>()((set, get) => ({
   ...initialState,
 
@@ -362,8 +371,11 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
 
     let dataset: ReturnType<typeof deserializeDataset> | null = null;
     let model: ReturnType<typeof buildModel> | null = null;
+    let modelOwnedByVisualizer = false;
 
     try {
+      visualizerStore.setVisualizationModel(stage.id, null);
+
       const activeModel = buildModel(
         layers,
         stage,
@@ -373,6 +385,10 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         { maxParameters },
       );
       model = activeModel;
+      if (isDigitsStage(stage)) {
+        visualizerStore.setVisualizationModel(stage.id, activeModel);
+        modelOwnedByVisualizer = true;
+      }
 
       dataset = deserializeDataset(datasetPreview);
       if (get().isTrainingRunCurrent(runId)) {
@@ -471,7 +487,9 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
     } finally {
       dataset?.xs.dispose();
       dataset?.ys.dispose();
-      model?.dispose();
+      if (!modelOwnedByVisualizer) {
+        model?.dispose();
+      }
     }
   },
 
