@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { TrainResult } from "../ml/trainer";
 import { SKILL_DATA } from "../config/skills";
 import type { StageDef } from "../types";
+import { formatStageObjective } from "../stageUtils";
 import { SteamParticles } from "./SteamParticles";
 
 const skillNameById = new Map(SKILL_DATA.map((skill) => [skill.id, skill.name]));
@@ -224,7 +225,7 @@ export function StageIntroPopup({
         <div className="stage-popup__meta">
           <div>
             <span className="stage-popup__label">Objective</span>
-            <strong>{formatStageTarget(stage)}</strong>
+            <strong>{formatStageObjective(stage)}</strong>
           </div>
           <div>
             <span className="stage-popup__label">Reward</span>
@@ -335,14 +336,6 @@ const closeXButtonStyle: React.CSSProperties = {
   zIndex: 10,
   padding: 0,
 };
-
-function formatStageTarget(stage: StageDef) {
-  if (stage.taskType === "regression") {
-    return `Loss ${stage.targetLoss?.toFixed(2) ?? "--"} 以下`;
-  }
-
-  return `Accuracy ${(stage.targetAccuracy * 100).toFixed(0)}% 以上`;
-}
 
 function formatStageResult(stage: StageDef, result: TrainResult | null) {
   if (!result) {

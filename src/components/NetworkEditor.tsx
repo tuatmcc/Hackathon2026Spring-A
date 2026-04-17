@@ -27,7 +27,7 @@ import { LayerNode } from "./LayerNode";
 import { FixedNode } from "./FixedNode";
 import { createLayerNode } from "./layerNodeFactory";
 import { isValidLayerConnection, isFixedNodeId } from "./networkEditorUtils";
-import { NETWORK_EDITOR_INTERACTION } from "./networkEditorInteractionConfig";
+import { NETWORK_EDITOR_INTERACTION } from "../config/networkEditor";
 import { usePlayStore } from "../stores/playStore";
 import type { LayerNodeData, StageDef } from "../types";
 
@@ -144,10 +144,11 @@ export function NetworkEditor({
     });
   }, [bodyDropMode, bodyDropTargetId, bodyDropTargetValid, fixedNodes, nodes, stage]);
 
-  const allEdges = useMemo(() => {
-    if (!stage) return edges;
-    return edges;
-  }, [edges, stage]);
+  const allEdges = edges;
+  const activeSelectedNodeId =
+    selectedNodeId != null && allNodes.some((node) => node.id === selectedNodeId)
+      ? selectedNodeId
+      : null;
 
   const nodeTypes: NodeTypes = useMemo(() => ({
     layerNode: LayerNode,
@@ -417,13 +418,6 @@ export function NetworkEditor({
     };
   }, [bodyDropMode, updateBodyDropPreview]);
 
-  useEffect(() => {
-    if (!bodyDropMode) {
-      setBodyDropTargetId(null);
-      setBodyDropTargetValid(false);
-    }
-  }, [bodyDropMode]);
-
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       removeNode(nodeId);
@@ -431,17 +425,6 @@ export function NetworkEditor({
     },
     [removeNode],
   );
-
-  useEffect(() => {
-    if (!selectedNodeId) {
-      return;
-    }
-
-    const selectedStillExists = allNodes.some((node) => node.id === selectedNodeId);
-    if (!selectedStillExists) {
-      setSelectedNodeId(null);
-    }
-  }, [allNodes, selectedNodeId]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -696,7 +679,7 @@ export function NetworkEditor({
         )}
       </div>
       <LayerConfigPanel
-        selectedNodeId={selectedNodeId}
+        selectedNodeId={activeSelectedNodeId}
         onDeleteNode={handleDeleteNode}
       />
     </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { NETWORK_EDITOR_INTERACTION } from "./networkEditorInteractionConfig";
+import { NETWORK_EDITOR_INTERACTION } from "./networkEditor";
 
-describe("networkEditorInteractionConfig", () => {
+describe("networkEditor config", () => {
   it("uses expanded radii and edge interaction width for easier edge operations", () => {
     expect(NETWORK_EDITOR_INTERACTION.connectionRadius).toBe(56);
     expect(NETWORK_EDITOR_INTERACTION.reconnectRadius).toBe(40);

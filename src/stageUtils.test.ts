@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StageDef } from "./types";
 import {
   didStageClear,
+  formatStageObjective,
   formatStageTarget,
   formatStageTargetValue,
   getStageTargetLabel,
@@ -59,9 +60,11 @@ describe("stageUtils", () => {
     expect(getStageTargetLabel(classificationStage)).toBe("Target Accuracy");
     expect(formatStageTargetValue(classificationStage)).toBe("90%");
     expect(formatStageTarget(classificationStage)).toBe("Target Accuracy: 90%");
+    expect(formatStageObjective(classificationStage)).toBe("Accuracy 90% 以上");
 
     expect(getStageTargetLabel(regressionStage)).toBe("Target Loss");
     expect(formatStageTargetValue(regressionStage)).toBe("0.0500");
     expect(formatStageTarget(regressionStage)).toBe("Target Loss: 0.0500");
+    expect(formatStageObjective(regressionStage)).toBe("Loss 0.05 以下");
   });
 });

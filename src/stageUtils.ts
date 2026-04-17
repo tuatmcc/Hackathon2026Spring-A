@@ -31,6 +31,14 @@ export function formatStageTarget(stage: StageDef) {
   return `${getStageTargetLabel(stage)}: ${formatStageTargetValue(stage)}`;
 }
 
+export function formatStageObjective(stage: StageDef) {
+  if (stage.taskType === "regression") {
+    return `Loss ${stage.targetLoss?.toFixed(2) ?? "--"} 以下`;
+  }
+
+  return `Accuracy ${(stage.targetAccuracy * 100).toFixed(0)}% 以上`;
+}
+
 function formatLoss(value: number | undefined) {
   return value != null ? value.toFixed(4) : "--";
 }

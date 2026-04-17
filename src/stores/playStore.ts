@@ -38,6 +38,7 @@ import {
   sortLayerNodesTopologically,
   validateSequentialLayerGraph,
 } from "../components/networkEditorUtils";
+import { didStageClear } from "../stageUtils";
 import { deriveSeed } from "../ml/random";
 import { sanitizeLayerNodeData } from "../layerSizeOptions";
 import { getModelParameterCap } from "../ml/modelParameterBudget";
@@ -424,10 +425,7 @@ export const usePlayStore = create<PlayStore>()((set, get) => ({
         createVisualizationSnapshot(activeModel, dataset, stage, { epoch: epochs }),
       );
 
-      const cleared =
-        stage.taskType === "regression"
-          ? result.finalLoss <= (stage.targetLoss ?? Number.POSITIVE_INFINITY)
-          : (result.finalAccuracy ?? 0) >= stage.targetAccuracy;
+      const cleared = didStageClear(stage, result);
 
       if (cleared) {
         const rewardGranted = clearStage(stage.id);

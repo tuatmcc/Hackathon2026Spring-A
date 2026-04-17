@@ -4,6 +4,10 @@ import type { LayerNodeData } from "../types";
 export function LayerNode({ data, selected }: NodeProps) {
   const layerData = data as LayerNodeData;
   const activationLabel = (layerData.activation ?? "linear").toUpperCase();
+  const sizeValue = layerData.layerType === "conv2d"
+    ? (layerData.filters ?? layerData.units)
+    : layerData.units;
+  const sizeLabel = layerData.layerType === "conv2d" ? "Filters" : "Width";
 
   return (
     <div className={`network-layer-node${selected ? " selected" : ""}`}>
@@ -25,8 +29,8 @@ export function LayerNode({ data, selected }: NodeProps) {
       </div>
       <div className="network-layer-node__stats">
         <div className="network-layer-node__stat">
-          <span>Width</span>
-          <strong>{layerData.units}</strong>
+          <span>{sizeLabel}</span>
+          <strong>{sizeValue}</strong>
         </div>
         <div className="network-layer-node__stat">
           <span>Activation</span>

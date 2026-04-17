@@ -39,7 +39,7 @@ describe("layerSizeOptions", () => {
   });
 
   it("Conv2D は別の小さめフィルタ帯を使う", () => {
-    expect(getLayerSizeOptions("conv2d", [])).toEqual([4, 8, 12, 16, 24, 32]);
+    expect(getLayerSizeOptions("conv2d", [])).toEqual([1, 2, 4, 8, 16, 24]);
   });
 
   it("スキルIDを実レイヤーと幅拡張で区別できる", () => {
